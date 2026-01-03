@@ -1,4 +1,4 @@
-const { openStreamDeck } = require('@elgato-stream-deck/node');
+const { openStreamDeck, listStreamDecks } = require('@elgato-stream-deck/node');
 const mqtt = require('mqtt');
 const Jimp = require('jimp');
 const path = require('path');
@@ -40,8 +40,20 @@ client.on('error', (err) => {
 // Stream Deck Logic
 async function main() {
     try {
-        // Open the first found stream deck
-        myStreamDeck = await openStreamDeck();
+        const devices = await listStreamDecks();
+        console.log('Discovered Stream Decks:', JSON.stringify(devices, null, 2));
+
+        if (devices.length === 0) {
+            console.log('No Stream Decks found. Retrying...');
+            setTimeout(main, 5000);
+            return;
+        }
+
+        const devicePath = devices[0].path;
+        console.log(`Attempting to open Stream Deck at path: ${devicePath}`);
+
+        // Try opening with explicit path if available, or let it retry if that was the issue
+        myStreamDeck = await openStreamDeck(devicePath);
 
         console.log(`Connected to Stream Deck: ${myStreamDeck.MODEL}`);
 
