@@ -58,7 +58,22 @@ async function main() {
         console.log(`Connected to Stream Deck: ${myStreamDeck.MODEL}`);
 
         // Clear the device
-        await myStreamDeck.clear();
+        // try catch clear in case of API differences, but documentation says clearAllKeys()
+        try {
+            if (myStreamDeck.clearAllKeys) {
+                await myStreamDeck.clearAllKeys();
+            } else if (myStreamDeck.clear) {
+                await myStreamDeck.clear();
+            } else {
+                console.warn('No clear method found on device object');
+                // Manually clear?
+                for (let i = 0; i < myStreamDeck.NUM_KEYS; i++) {
+                    await myStreamDeck.clearKey(i);
+                }
+            }
+        } catch (e) {
+            console.error('Error clearing device:', e);
+        }
 
         // Publish device info
         client.publish(`${BASE_TOPIC}/info`, JSON.stringify({
@@ -167,7 +182,15 @@ client.on('message', async (topic, message) => {
 // Handle Exit
 process.on('SIGINT', async () => {
     if (myStreamDeck) {
-        await myStreamDeck.clear();
+        // try catch clear
+        try {
+            if (myStreamDeck.clearAllKeys) {
+                await myStreamDeck.clearAllKeys();
+            } else if (myStreamDeck.clear) {
+                await myStreamDeck.clear();
+            }
+        } catch (e) { }
+
         await myStreamDeck.close();
     }
     client.end();
