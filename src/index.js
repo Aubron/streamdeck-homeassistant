@@ -56,6 +56,7 @@ async function main() {
         myStreamDeck = await openStreamDeck(devicePath);
 
         console.log(`Connected to Stream Deck: ${myStreamDeck.MODEL}`);
+        console.log('Device methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(myStreamDeck)));
 
         // Clear the device
         // try catch clear in case of API differences, but documentation says clearAllKeys()
@@ -65,7 +66,7 @@ async function main() {
             } else if (myStreamDeck.clear) {
                 await myStreamDeck.clear();
             } else {
-                console.warn('No clear method found on device object');
+                console.warn('No clear method found on device object. Falling back to clearKey loop.');
                 // Manually clear?
                 for (let i = 0; i < myStreamDeck.NUM_KEYS; i++) {
                     await myStreamDeck.clearKey(i);
@@ -83,17 +84,26 @@ async function main() {
             columns: myStreamDeck.KEY_COLUMNS,
             rows: myStreamDeck.KEY_ROWS,
             keyCount: myStreamDeck.NUM_KEYS
-        }), { retain: true });
+        }), { retain: true }, (err) => {
+            if (err) console.error('MQTT Info Publish Error:', err);
+            else console.log('MQTT Info Published');
+        });
 
         // Event listeners
         myStreamDeck.on('down', (keyIndex) => {
             console.log(`Key ${keyIndex} down`);
-            client.publish(`${BASE_TOPIC}/key/${keyIndex}/state`, 'pressed');
+            client.publish(`${BASE_TOPIC}/key/${keyIndex}/state`, 'pressed', (err) => {
+                if (err) console.error(`MQTT Publish Error (Key ${keyIndex} Down):`, err);
+                else console.log(`MQTT Published (Key ${keyIndex} Down)`);
+            });
         });
 
         myStreamDeck.on('up', (keyIndex) => {
             console.log(`Key ${keyIndex} up`);
-            client.publish(`${BASE_TOPIC}/key/${keyIndex}/state`, 'released');
+            client.publish(`${BASE_TOPIC}/key/${keyIndex}/state`, 'released', (err) => {
+                if (err) console.error(`MQTT Publish Error (Key ${keyIndex} Up):`, err);
+                else console.log(`MQTT Published (Key ${keyIndex} Up)`);
+            });
         });
 
         myStreamDeck.on('error', (error) => {
@@ -134,17 +144,27 @@ client.on('message', async (topic, message) => {
                 } else if (msgStr.startsWith('http')) {
                     // Load from URL
                     const image = await Jimp.read(msgStr);
-                    const resized = image.resize(myStreamDeck.ICON_SIZE, myStreamDeck.ICON_SIZE);
-                    const buffer = resized.bitmap.data; // This might need format conversion for Stream Deck
-                    // Stream Deck expects specific format (usually JPEG or BMP depending on model, or raw buffer)
-                    // @elgato-stream-deck/node abstracts this slightly but we typically provide a buffer.
-                    // Let's use the fillKeyBuffer method if we can get the raw pixel data in correct format.
-                    // Actually, the library creates a sharp/jimp wrapper usually.
-                    // Let's assume we pass the buffer of the resized image.
-                    // For better compatibility, let's write to a buffer in BMP/JPEG.
+                    image.resize(myStreamDeck.ICON_SIZE, myStreamDeck.ICON_SIZE);
 
-                    const imgBuffer = await resized.getBufferAsync(Jimp.MIME_JPEG);
-                    await myStreamDeck.fillKeyBuffer(keyIndex, imgBuffer);
+                    // Convert RGBA to Raw BGR for Stream Deck
+                    // Stream Decks typically expect BGR format for raw buffers
+                    // Jimp bitmap data is RGBA
+                    const rawBuffer = Buffer.alloc(myStreamDeck.ICON_SIZE * myStreamDeck.ICON_SIZE * 3);
+                    const { data, width } = image.bitmap;
+
+                    for (let y = 0; y < myStreamDeck.ICON_SIZE; y++) {
+                        for (let x = 0; x < myStreamDeck.ICON_SIZE; x++) {
+                            const srcIdx = (y * width + x) * 4;
+                            const destIdx = (y * myStreamDeck.ICON_SIZE + x) * 3;
+
+                            // BGR
+                            rawBuffer[destIdx] = data[srcIdx + 2];     // B
+                            rawBuffer[destIdx + 1] = data[srcIdx + 1]; // G
+                            rawBuffer[destIdx + 2] = data[srcIdx];     // R
+                        }
+                    }
+
+                    await myStreamDeck.fillKeyBuffer(keyIndex, rawBuffer);
                 } else {
                     console.log(`Unknown image format for key ${keyIndex}`);
                 }
