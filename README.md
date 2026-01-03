@@ -52,8 +52,9 @@ const config: DeviceConfig = {
                 key: 2,
                 color: '#FF0000', // Simple color fill
                 action: {
-                    type: 'network_request', // Custom actions can be added
-                    // ...
+                    type: 'mqtt',
+                    topic: 'home/kitchen/light/set',
+                    payload: 'ON'
                 }
             }
         ],
@@ -81,6 +82,7 @@ export default config;
 
 -   **Phosphor Icons**: `ph:acorn`, `ph:lightbulb-fill` (see [Phosphor Icons](https://phosphoricons.com/))
 -   **Local Files**: `local:my-icon.png` (relative to `assets/` directory)
+-   **Remote URLs**: `https://example.com/image.png` (Direct HTTP/HTTPS links)
 -   **Colors**: `#FF0000` (Hex color codes)
 
 ## Environment Variables

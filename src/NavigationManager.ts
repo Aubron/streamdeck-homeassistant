@@ -23,6 +23,9 @@ export class NavigationManager {
     }
 
     async start() {
+        // Start background prewarming
+        this.renderer.prewarm(this.config.pages).catch(e => console.error('Prewarming failed:', e));
+
         await this.navigateTo('default');
     }
 
@@ -30,7 +33,7 @@ export class NavigationManager {
         if (this.config.pages[pageName]) {
             this.currentPage = pageName;
             console.log(`Navigating to page: ${pageName}`);
-            await this.renderer.renderPage(this.config.pages[pageName]);
+            await this.renderer.renderPage(this.config.pages[pageName], pageName);
         } else {
             console.error(`Page not found: ${pageName}`);
         }
