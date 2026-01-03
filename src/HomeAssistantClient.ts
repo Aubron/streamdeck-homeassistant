@@ -11,6 +11,9 @@ export class HomeAssistantClient {
         if (this.baseUrl.endsWith('/')) {
             this.baseUrl = this.baseUrl.slice(0, -1);
         }
+        if (!this.baseUrl.startsWith('http://') && !this.baseUrl.startsWith('https://')) {
+            this.baseUrl = `http://${this.baseUrl}`;
+        }
     }
 
     async callService(service: string, entityId?: string, data: Record<string, any> = {}) {
@@ -25,7 +28,13 @@ export class HomeAssistantClient {
             return;
         }
 
-        const url = `${this.baseUrl}/api/services/${domain}/${serviceName}`;
+        let url: URL;
+        try {
+            url = new URL(`${this.baseUrl}/api/services/${domain}/${serviceName}`);
+        } catch (e) {
+            console.error(`Invalid Home Assistant URL: ${this.baseUrl}/api/services/${domain}/${serviceName}`);
+            return;
+        }
 
         const payload = { ...data };
         if (entityId) {

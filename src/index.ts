@@ -66,6 +66,10 @@ async function main() {
 
         // Initialize Managers
         const config = ConfigManager.loadConfig(DEVICE_ID);
+        if (config.brightness) {
+            console.log(`Setting brightness to ${config.brightness}`);
+            await myStreamDeck.setBrightness(config.brightness);
+        }
         const renderer = new PageRenderer(myStreamDeck);
         const configManager = new ConfigManager(); // Just for dependency injection compatibility
         const navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, config);
