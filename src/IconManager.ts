@@ -56,7 +56,13 @@ export class IconManager {
                     // Passed color is for background in getIconJimp? 
                     // Let's force white icon for now as typical.
 
-                    svg = svg.replace('<svg', `<svg fill="#ffffff" `);
+                    // Colorize
+                    // Check if fill exists
+                    if (svg.includes('fill="')) {
+                        svg = svg.replace(/fill="[^"]*"/, 'fill="#ffffff"');
+                    } else {
+                        svg = svg.replace('<svg', '<svg fill="#ffffff" ');
+                    }
 
                     const resvg = new Resvg(svg, {
                         fitTo: { mode: 'width', value: size }
@@ -110,9 +116,14 @@ export class IconManager {
                 const fs = require('fs');
                 let svg = fs.readFileSync(svgPath, 'utf8');
 
-                const coloredSvg = svg.replace('<svg', `<svg fill="#ffffff" `);
+                // Colorize
+                if (svg.includes('fill="')) {
+                    svg = svg.replace(/fill="[^"]*"/, 'fill="#ffffff"');
+                } else {
+                    svg = svg.replace('<svg', '<svg fill="#ffffff" ');
+                }
 
-                const resvg = new Resvg(coloredSvg, {
+                const resvg = new Resvg(svg, {
                     fitTo: { mode: 'width', value: size }
                 });
                 const pngData = resvg.render();
