@@ -9,9 +9,9 @@ const config: DeviceConfig = {
                 text: 'Living Room',
                 icon: 'ph:lightbulb',
                 action: {
-                    type: 'mqtt',
-                    topic: 'homeassistant/light/living_room/toggle',
-                    payload: 'toggle'
+                    type: 'ha',
+                    service: 'light.toggle',
+                    entityId: 'light.bar_spotlight'
                 }
             },
             {

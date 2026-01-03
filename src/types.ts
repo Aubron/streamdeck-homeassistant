@@ -16,7 +16,14 @@ export interface CommandAction {
     command: string; // e.g. 'clear'
 }
 
-export type Action = MqttAction | NavigateAction | CommandAction;
+export interface HomeAssistantAction {
+    type: 'ha';
+    service: string; // e.g. 'light.turn_on'
+    entityId?: string; // Optional shorthand for data.entity_id
+    data?: Record<string, any>; // service_data like brightness, color_temp, etc.
+}
+
+export type Action = MqttAction | NavigateAction | CommandAction | HomeAssistantAction;
 
 export interface ButtonConfig {
     key: number;

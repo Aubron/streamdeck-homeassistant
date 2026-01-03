@@ -14,13 +14,17 @@ export class IconManager {
     static async getIconBuffer(icon: string, size: number, color: string = '#000000'): Promise<Buffer> {
         // Reuse getIconJimp to get the image instance
         const image = await IconManager.getIconJimp(icon, size, color);
+        return IconManager.toRawBgr(image);
+    }
 
+    static toRawBgr(image: Jimp): Buffer {
         // Convert RGBA to Raw BGR for Stream Deck
         // The library 'node-streamdeck' for original-mk2 (and others) often expects raw buffers 
         // if the strict length check is failing for PNG/JPEG.
         // BGR is the standard raw format.
 
         const { data, width } = image.bitmap;
+        const size = width; // Assuming Jimp image is square for icons
         const rawBuffer = Buffer.alloc(size * size * 3);
 
         for (let y = 0; y < size; y++) {

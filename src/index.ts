@@ -67,7 +67,8 @@ async function main() {
         // Initialize Managers
         const config = ConfigManager.loadConfig(DEVICE_ID);
         const renderer = new PageRenderer(myStreamDeck);
-        const navManager = new NavigationManager(renderer, config);
+        const configManager = new ConfigManager(); // Just for dependency injection compatibility
+        const navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, config);
 
         // Start (render default page)
         await navManager.start();

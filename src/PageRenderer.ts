@@ -68,7 +68,7 @@ export class PageRenderer {
                         // Let's center for now.
                         img.print(font, x, y, buttonConfig.text);
 
-                        const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
+                        const buffer = IconManager.toRawBgr(img);
                         await this.device.fillKeyBuffer(keyIndex, buffer);
                     }
 
