@@ -16,6 +16,18 @@ const config: DeviceConfig = {
             },
             {
                 key: 1,
+                text: 'Entropy Sign',
+                icon: 'ph:lightbulb',
+                action: {
+                    type: 'ha',
+                    service: 'light.toggle',
+                    entityId: 'light.entropy_oblivion_sign'
+                }
+            }, {
+                key: 2,
+                icon: "https://placecats.com/72/72"
+            }, {
+                key: 3,
                 text: 'System',
                 icon: 'ph:gear',
                 action: {

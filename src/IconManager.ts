@@ -87,7 +87,16 @@ export class IconManager {
                 console.error(`Error loading ${fullPath}`, e);
                 jimpImage = new Jimp(size, size, bgColor);
             }
-        } else {
+        }
+        else if (icon.startsWith('http')) {
+            try {
+                jimpImage = await Jimp.read(icon);
+            } catch (e) {
+                console.error(`Error loading remote icon ${icon}`, e);
+                jimpImage = new Jimp(size, size, bgColor);
+            }
+        }
+        else {
             jimpImage = new Jimp(size, size, bgColor);
         }
 
