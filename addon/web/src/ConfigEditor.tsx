@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Autocomplete from './Autocomplete';
+import IconPreview from './IconPreview';
 
 interface Device {
     id: string;
@@ -316,13 +317,16 @@ export default function ConfigEditor({ device }: Props) {
                             const btn = getButtonConfig(i);
                             const bgColor = btn?.color || '#333333';
                             const textColor = btn?.textColor || '#ffffff';
+                            const iconColor = btn?.iconColor || '#ffffff';
+                            const hasIcon = btn?.icon && !btn.icon.startsWith('#');
+                            const hasText = btn?.text;
                             return (
                                 <button
                                     key={i}
                                     onClick={() => setSelectedKey(i)}
                                     className={`
-                                        w-[72px] h-[72px] rounded-lg flex items-center justify-center
-                                        text-xs text-center p-1 break-words transition-all duration-150
+                                        w-[72px] h-[72px] rounded-lg flex flex-col items-center justify-center
+                                        text-xs text-center transition-all duration-150 relative overflow-hidden
                                         ${selectedKey === i
                                             ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-950'
                                             : 'hover:ring-2 hover:ring-surface-500 hover:ring-offset-1 hover:ring-offset-surface-950'
@@ -330,9 +334,27 @@ export default function ConfigEditor({ device }: Props) {
                                     `}
                                     style={{ backgroundColor: bgColor }}
                                 >
-                                    <span style={{ color: textColor }} className="drop-shadow-md">
-                                        {btn?.text || btn?.icon || i}
-                                    </span>
+                                    {hasIcon && (
+                                        <div className={hasText ? 'mb-0.5' : ''}>
+                                            <IconPreview
+                                                icon={btn?.icon}
+                                                iconColor={iconColor}
+                                                size={hasText ? 32 : 40}
+                                            />
+                                        </div>
+                                    )}
+                                    {hasText ? (
+                                        <span
+                                            style={{ color: textColor }}
+                                            className="drop-shadow-md text-[10px] leading-tight max-w-full px-1 truncate"
+                                        >
+                                            {btn.text}
+                                        </span>
+                                    ) : !hasIcon ? (
+                                        <span style={{ color: textColor }} className="opacity-30">
+                                            {i}
+                                        </span>
+                                    ) : null}
                                 </button>
                             );
                         })}
