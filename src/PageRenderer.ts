@@ -86,7 +86,7 @@ export class PageRenderer {
             }
 
             img.composite(textLayer, 0, 0);
-            return IconManager.toRawBgr(img);
+            return IconManager.toRawRgb(img);
         } else if (buttonConfig.icon) {
             return await IconManager.getIconBuffer(buttonConfig.icon, this.device.ICON_SIZE, bgColor, iconColor);
         } else if (bgColor && bgColor.startsWith('#')) {
@@ -97,9 +97,9 @@ export class PageRenderer {
             const size = this.device.ICON_SIZE;
             const buffer = Buffer.alloc(size * size * 3);
             for (let i = 0; i < size * size; i++) {
-                buffer[i * 3] = b;
+                buffer[i * 3] = r;
                 buffer[i * 3 + 1] = g;
-                buffer[i * 3 + 2] = r;
+                buffer[i * 3 + 2] = b;
             }
             return buffer;
         }

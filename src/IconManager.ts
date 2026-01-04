@@ -14,14 +14,12 @@ export class IconManager {
     static async getIconBuffer(icon: string, size: number, bgColor: string = '#000000', iconColor: string = '#ffffff'): Promise<Buffer> {
         // Reuse getIconJimp to get the image instance
         const image = await IconManager.getIconJimp(icon, size, bgColor, iconColor);
-        return IconManager.toRawBgr(image);
+        return IconManager.toRawRgb(image);
     }
 
-    static toRawBgr(image: Jimp): Buffer {
-        // Convert RGBA to Raw BGR for Stream Deck
-        // The library 'node-streamdeck' for original-mk2 (and others) often expects raw buffers 
-        // if the strict length check is failing for PNG/JPEG.
-        // BGR is the standard raw format.
+    static toRawRgb(image: Jimp): Buffer {
+        // Convert RGBA to Raw RGB for Stream Deck
+        // The @elgato-stream-deck/node library expects RGB format for fillKeyBuffer
 
         const { data, width } = image.bitmap;
         const size = width; // Assuming Jimp image is square for icons
@@ -32,10 +30,10 @@ export class IconManager {
                 const srcIdx = (y * width + x) * 4;
                 const destIdx = (y * size + x) * 3;
 
-                // BGR mapping from RGBA
-                rawBuffer[destIdx] = data[srcIdx + 2];     // B
+                // RGB mapping from RGBA
+                rawBuffer[destIdx] = data[srcIdx];         // R
                 rawBuffer[destIdx + 1] = data[srcIdx + 1]; // G
-                rawBuffer[destIdx + 2] = data[srcIdx];     // R
+                rawBuffer[destIdx + 2] = data[srcIdx + 2]; // B
             }
         }
 
