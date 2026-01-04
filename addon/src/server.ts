@@ -7,6 +7,8 @@ import { Database } from './database';
 
 const PORT = process.env.INGRESS_PORT || 8099;
 const DATA_DIR = process.env.DATA_DIR || './data';
+const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
+const HA_BASE_URL = 'http://supervisor/core';
 
 const app = express();
 const server = createServer(app);
@@ -59,6 +61,94 @@ app.post('/api/devices/:deviceId/config', async (req, res) => {
         res.json({ success: true, message: 'Config deployed' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to deploy config' });
+    }
+});
+
+// Get Home Assistant entities
+app.get('/api/ha/entities', async (req, res) => {
+    if (!SUPERVISOR_TOKEN) {
+        return res.status(503).json({ error: 'Home Assistant API not available' });
+    }
+
+    try {
+        const response = await fetch(`${HA_BASE_URL}/api/states`, {
+            headers: {
+                'Authorization': `Bearer ${SUPERVISOR_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HA API returned ${response.status}`);
+        }
+
+        const states = await response.json() as Array<{
+            entity_id: string;
+            state: string;
+            attributes: { friendly_name?: string; [key: string]: any };
+        }>;
+
+        // Transform to a simpler format for the frontend
+        const entities = states.map(entity => ({
+            entity_id: entity.entity_id,
+            name: entity.attributes.friendly_name || entity.entity_id,
+            domain: entity.entity_id.split('.')[0],
+            state: entity.state
+        }));
+
+        // Sort by domain then by name
+        entities.sort((a, b) => {
+            if (a.domain !== b.domain) return a.domain.localeCompare(b.domain);
+            return a.name.localeCompare(b.name);
+        });
+
+        res.json(entities);
+    } catch (error) {
+        console.error('Error fetching HA entities:', error);
+        res.status(500).json({ error: 'Failed to fetch entities' });
+    }
+});
+
+// Get Home Assistant services
+app.get('/api/ha/services', async (req, res) => {
+    if (!SUPERVISOR_TOKEN) {
+        return res.status(503).json({ error: 'Home Assistant API not available' });
+    }
+
+    try {
+        const response = await fetch(`${HA_BASE_URL}/api/services`, {
+            headers: {
+                'Authorization': `Bearer ${SUPERVISOR_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HA API returned ${response.status}`);
+        }
+
+        const services = await response.json() as Array<{
+            domain: string;
+            services: { [key: string]: any };
+        }>;
+
+        // Flatten to service list
+        const serviceList: Array<{ service: string; domain: string; name: string }> = [];
+        for (const domainServices of services) {
+            for (const serviceName of Object.keys(domainServices.services)) {
+                serviceList.push({
+                    service: `${domainServices.domain}.${serviceName}`,
+                    domain: domainServices.domain,
+                    name: serviceName
+                });
+            }
+        }
+
+        serviceList.sort((a, b) => a.service.localeCompare(b.service));
+        res.json(serviceList);
+    } catch (error) {
+        console.error('Error fetching HA services:', error);
+        res.status(500).json({ error: 'Failed to fetch services' });
     }
 });
 

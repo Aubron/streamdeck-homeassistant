@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface Device {
     id: string;
@@ -14,6 +14,8 @@ interface ButtonConfig {
     text?: string;
     icon?: string;
     color?: string;
+    iconColor?: string;
+    textColor?: string;
     action?: {
         type: 'ha' | 'navigate' | 'mqtt' | 'command';
         [key: string]: any;
@@ -27,6 +29,19 @@ interface DeviceConfig {
     };
 }
 
+interface HAEntity {
+    entity_id: string;
+    name: string;
+    domain: string;
+    state: string;
+}
+
+interface HAService {
+    service: string;
+    domain: string;
+    name: string;
+}
+
 interface Props {
     device: Device;
 }
@@ -36,28 +51,60 @@ const getBasePath = () => window.location.pathname.replace(/\/$/, '');
 
 export default function ConfigEditor({ device }: Props) {
     const [config, setConfig] = useState<DeviceConfig>({ pages: { default: [] } });
-    const [currentPage] = useState('default');
+    const [currentView, setCurrentView] = useState('default');
     const [selectedKey, setSelectedKey] = useState<number | null>(null);
     const [deploying, setDeploying] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [newViewName, setNewViewName] = useState('');
+    const [showNewViewInput, setShowNewViewInput] = useState(false);
 
+    // Home Assistant data
+    const [entities, setEntities] = useState<HAEntity[]>([]);
+    const [services, setServices] = useState<HAService[]>([]);
+    const [entitySearch, setEntitySearch] = useState('');
+    const [serviceSearch, setServiceSearch] = useState('');
+
+    // Load config
     useEffect(() => {
         fetch(`${getBasePath()}/api/devices/${device.id}/config`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data) setConfig(data);
-                else setConfig({ brightness: 80, pages: { default: [] } });
+                if (data) {
+                    setConfig(data);
+                    // Set current view to first available or default
+                    const views = Object.keys(data.pages);
+                    if (views.length > 0 && !views.includes(currentView)) {
+                        setCurrentView(views[0]);
+                    }
+                } else {
+                    setConfig({ brightness: 80, pages: { default: [] } });
+                }
             })
             .catch(() => setConfig({ brightness: 80, pages: { default: [] } }));
     }, [device.id]);
 
+    // Load HA entities and services
+    useEffect(() => {
+        fetch(`${getBasePath()}/api/ha/entities`)
+            .then(res => res.ok ? res.json() : [])
+            .then(data => setEntities(data))
+            .catch(() => setEntities([]));
+
+        fetch(`${getBasePath()}/api/ha/services`)
+            .then(res => res.ok ? res.json() : [])
+            .then(data => setServices(data))
+            .catch(() => setServices([]));
+    }, []);
+
+    const views = useMemo(() => Object.keys(config.pages), [config.pages]);
+
     const getButtonConfig = (keyIndex: number): ButtonConfig | undefined => {
-        return config.pages[currentPage]?.find(b => b.key === keyIndex);
+        return config.pages[currentView]?.find(b => b.key === keyIndex);
     };
 
     const updateButton = (keyIndex: number, updates: Partial<ButtonConfig>) => {
         setConfig(prev => {
-            const pageButtons = [...(prev.pages[currentPage] || [])];
+            const pageButtons = [...(prev.pages[currentView] || [])];
             const existingIndex = pageButtons.findIndex(b => b.key === keyIndex);
 
             if (existingIndex >= 0) {
@@ -70,10 +117,40 @@ export default function ConfigEditor({ device }: Props) {
                 ...prev,
                 pages: {
                     ...prev.pages,
-                    [currentPage]: pageButtons
+                    [currentView]: pageButtons
                 }
             };
         });
+    };
+
+    const createView = () => {
+        if (!newViewName.trim() || views.includes(newViewName.trim())) return;
+
+        const viewName = newViewName.trim().toLowerCase().replace(/\s+/g, '_');
+        setConfig(prev => ({
+            ...prev,
+            pages: {
+                ...prev.pages,
+                [viewName]: []
+            }
+        }));
+        setCurrentView(viewName);
+        setNewViewName('');
+        setShowNewViewInput(false);
+    };
+
+    const deleteView = (viewName: string) => {
+        if (viewName === 'default' || views.length <= 1) return;
+
+        setConfig(prev => {
+            const newPages = { ...prev.pages };
+            delete newPages[viewName];
+            return { ...prev, pages: newPages };
+        });
+
+        if (currentView === viewName) {
+            setCurrentView('default');
+        }
     };
 
     const deploy = async () => {
@@ -101,6 +178,35 @@ export default function ConfigEditor({ device }: Props) {
 
     const selectedButton = selectedKey !== null ? getButtonConfig(selectedKey) : null;
 
+    // Filter entities for dropdown
+    const filteredEntities = useMemo(() => {
+        if (!entitySearch) return entities.slice(0, 100);
+        const search = entitySearch.toLowerCase();
+        return entities.filter(e =>
+            e.entity_id.toLowerCase().includes(search) ||
+            e.name.toLowerCase().includes(search)
+        ).slice(0, 100);
+    }, [entities, entitySearch]);
+
+    // Filter services for dropdown
+    const filteredServices = useMemo(() => {
+        if (!serviceSearch) return services.slice(0, 100);
+        const search = serviceSearch.toLowerCase();
+        return services.filter(s =>
+            s.service.toLowerCase().includes(search)
+        ).slice(0, 100);
+    }, [services, serviceSearch]);
+
+    // Group entities by domain
+    const groupedEntities = useMemo(() => {
+        const groups: { [domain: string]: HAEntity[] } = {};
+        for (const entity of filteredEntities) {
+            if (!groups[entity.domain]) groups[entity.domain] = [];
+            groups[entity.domain].push(entity);
+        }
+        return groups;
+    }, [filteredEntities]);
+
     return (
         <div>
             {/* Header */}
@@ -123,6 +229,67 @@ export default function ConfigEditor({ device }: Props) {
                 >
                     {deploying ? 'Deploying...' : 'Deploy Configuration'}
                 </button>
+            </div>
+
+            {/* View Selector */}
+            <div className="mb-6 flex items-center gap-3">
+                <label className="text-sm font-medium text-surface-400">View:</label>
+                <select
+                    value={currentView}
+                    onChange={e => {
+                        setCurrentView(e.target.value);
+                        setSelectedKey(null);
+                    }}
+                    className="px-3 py-2 min-w-[150px]"
+                >
+                    {views.map(view => (
+                        <option key={view} value={view}>
+                            {view === 'default' ? 'Default (Home)' : view}
+                        </option>
+                    ))}
+                </select>
+
+                {showNewViewInput ? (
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={newViewName}
+                            onChange={e => setNewViewName(e.target.value)}
+                            placeholder="View name..."
+                            className="px-3 py-2 w-32"
+                            onKeyDown={e => e.key === 'Enter' && createView()}
+                            autoFocus
+                        />
+                        <button
+                            onClick={createView}
+                            className="px-3 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm"
+                        >
+                            Add
+                        </button>
+                        <button
+                            onClick={() => { setShowNewViewInput(false); setNewViewName(''); }}
+                            className="px-3 py-2 bg-surface-700 hover:bg-surface-600 text-surface-300 rounded-lg text-sm"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowNewViewInput(true)}
+                        className="px-3 py-2 bg-surface-700 hover:bg-surface-600 text-surface-300 rounded-lg text-sm"
+                    >
+                        + New View
+                    </button>
+                )}
+
+                {currentView !== 'default' && (
+                    <button
+                        onClick={() => deleteView(currentView)}
+                        className="px-3 py-2 bg-error-800 hover:bg-error-700 text-error-400 rounded-lg text-sm"
+                    >
+                        Delete View
+                    </button>
+                )}
             </div>
 
             {/* Status Message */}
@@ -157,6 +324,8 @@ export default function ConfigEditor({ device }: Props) {
                     >
                         {Array.from({ length: device.keyCount }, (_, i) => {
                             const btn = getButtonConfig(i);
+                            const bgColor = btn?.color || '#333333';
+                            const textColor = btn?.textColor || '#ffffff';
                             return (
                                 <button
                                     key={i}
@@ -169,9 +338,9 @@ export default function ConfigEditor({ device }: Props) {
                                             : 'hover:ring-2 hover:ring-surface-500 hover:ring-offset-1 hover:ring-offset-surface-950'
                                         }
                                     `}
-                                    style={{ backgroundColor: btn?.color || '#333333' }}
+                                    style={{ backgroundColor: bgColor }}
                                 >
-                                    <span className="text-white drop-shadow-md">
+                                    <span style={{ color: textColor }} className="drop-shadow-md">
                                         {btn?.text || btn?.icon || i}
                                     </span>
                                 </button>
@@ -220,20 +389,54 @@ export default function ConfigEditor({ device }: Props) {
                                     </p>
                                 </div>
 
-                                {/* Color Picker */}
-                                <div>
-                                    <label className="block text-sm font-medium text-surface-400 mb-1.5">
-                                        Background Color
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="color"
-                                            value={selectedButton?.color || '#333333'}
-                                            onChange={e => updateButton(selectedKey, { color: e.target.value })}
-                                            className="w-12 h-10 rounded cursor-pointer border-0 p-0"
-                                        />
-                                        <span className="text-sm text-surface-500 font-mono">
+                                {/* Color Pickers */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                            Background
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="color"
+                                                value={selectedButton?.color || '#333333'}
+                                                onChange={e => updateButton(selectedKey, { color: e.target.value })}
+                                                className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                                            />
+                                        </div>
+                                        <span className="text-xs text-surface-600 font-mono">
                                             {selectedButton?.color || '#333333'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                            Icon Color
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="color"
+                                                value={selectedButton?.iconColor || '#ffffff'}
+                                                onChange={e => updateButton(selectedKey, { iconColor: e.target.value })}
+                                                className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                                            />
+                                        </div>
+                                        <span className="text-xs text-surface-600 font-mono">
+                                            {selectedButton?.iconColor || '#ffffff'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                            Text Color
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="color"
+                                                value={selectedButton?.textColor || '#ffffff'}
+                                                onChange={e => updateButton(selectedKey, { textColor: e.target.value })}
+                                                className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                                            />
+                                        </div>
+                                        <span className="text-xs text-surface-600 font-mono">
+                                            {selectedButton?.textColor || '#ffffff'}
                                         </span>
                                     </div>
                                 </div>
@@ -252,41 +455,84 @@ export default function ConfigEditor({ device }: Props) {
                                     >
                                         <option value="">None</option>
                                         <option value="ha">Home Assistant Service</option>
-                                        <option value="navigate">Navigate to Page</option>
+                                        <option value="navigate">Navigate to View</option>
                                         <option value="mqtt">MQTT Publish</option>
-                                        <option value="command">Shell Command</option>
+                                        <option value="command">Command</option>
                                     </select>
                                 </div>
 
                                 {/* Home Assistant Action Fields */}
                                 {selectedButton?.action?.type === 'ha' && (
                                     <div className="space-y-4 pt-2 border-t border-surface-700">
+                                        {/* Service Selector */}
                                         <div>
                                             <label className="block text-sm font-medium text-surface-400 mb-1.5">
                                                 Service
                                             </label>
                                             <input
                                                 type="text"
-                                                placeholder="light.toggle"
+                                                placeholder="Search services..."
+                                                value={serviceSearch}
+                                                onChange={e => setServiceSearch(e.target.value)}
+                                                className="w-full px-3 py-2 mb-2 text-sm"
+                                            />
+                                            <select
                                                 value={selectedButton.action.service || ''}
                                                 onChange={e => updateButton(selectedKey, {
-                                                    action: { type: 'ha', ...selectedButton.action, service: e.target.value }
+                                                    action: { ...selectedButton.action, type: 'ha', service: e.target.value }
                                                 })}
                                                 className="w-full px-3 py-2.5"
-                                            />
+                                            >
+                                                <option value="">Select a service...</option>
+                                                {filteredServices.map(s => (
+                                                    <option key={s.service} value={s.service}>
+                                                        {s.service}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
+
+                                        {/* Entity Selector */}
                                         <div>
                                             <label className="block text-sm font-medium text-surface-400 mb-1.5">
-                                                Entity ID
+                                                Entity
                                             </label>
+                                            <input
+                                                type="text"
+                                                placeholder="Search entities..."
+                                                value={entitySearch}
+                                                onChange={e => setEntitySearch(e.target.value)}
+                                                className="w-full px-3 py-2 mb-2 text-sm"
+                                            />
+                                            <select
+                                                value={selectedButton.action.entityId || ''}
+                                                onChange={e => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'ha', entityId: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2.5"
+                                            >
+                                                <option value="">Select an entity...</option>
+                                                {Object.entries(groupedEntities).map(([domain, domainEntities]) => (
+                                                    <optgroup key={domain} label={domain}>
+                                                        {domainEntities.map(entity => (
+                                                            <option key={entity.entity_id} value={entity.entity_id}>
+                                                                {entity.name} ({entity.state})
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                ))}
+                                            </select>
+                                            <p className="mt-1.5 text-xs text-surface-600">
+                                                Or type manually:
+                                            </p>
                                             <input
                                                 type="text"
                                                 placeholder="light.living_room"
                                                 value={selectedButton.action.entityId || ''}
                                                 onChange={e => updateButton(selectedKey, {
-                                                    action: { type: 'ha', ...selectedButton.action, entityId: e.target.value }
+                                                    action: { ...selectedButton.action, type: 'ha', entityId: e.target.value }
                                                 })}
-                                                className="w-full px-3 py-2.5"
+                                                className="w-full px-3 py-2 mt-1"
                                             />
                                         </div>
                                     </div>
@@ -296,19 +542,114 @@ export default function ConfigEditor({ device }: Props) {
                                 {selectedButton?.action?.type === 'navigate' && (
                                     <div className="pt-2 border-t border-surface-700">
                                         <label className="block text-sm font-medium text-surface-400 mb-1.5">
-                                            Target Page
+                                            Target View
                                         </label>
-                                        <input
-                                            type="text"
-                                            placeholder="default"
+                                        <select
                                             value={selectedButton.action.page || ''}
                                             onChange={e => updateButton(selectedKey, {
-                                                action: { type: 'navigate', ...selectedButton.action, page: e.target.value }
+                                                action: { type: 'navigate', page: e.target.value }
                                             })}
                                             className="w-full px-3 py-2.5"
-                                        />
+                                        >
+                                            <option value="">Select a view...</option>
+                                            {views.map(view => (
+                                                <option key={view} value={view}>
+                                                    {view === 'default' ? 'Default (Home)' : view}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 )}
+
+                                {/* MQTT Action Fields */}
+                                {selectedButton?.action?.type === 'mqtt' && (
+                                    <div className="space-y-4 pt-2 border-t border-surface-700">
+                                        <div>
+                                            <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                                Topic
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="home/bedroom/light"
+                                                value={selectedButton.action.topic || ''}
+                                                onChange={e => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'mqtt', topic: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2.5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                                Payload
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="on"
+                                                value={selectedButton.action.payload || ''}
+                                                onChange={e => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'mqtt', payload: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2.5"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                id="mqtt-retain"
+                                                checked={selectedButton.action.retain || false}
+                                                onChange={e => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'mqtt', retain: e.target.checked }
+                                                })}
+                                                className="w-4 h-4"
+                                            />
+                                            <label htmlFor="mqtt-retain" className="text-sm text-surface-400">
+                                                Retain message
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Command Action Fields */}
+                                {selectedButton?.action?.type === 'command' && (
+                                    <div className="pt-2 border-t border-surface-700">
+                                        <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                            Command
+                                        </label>
+                                        <select
+                                            value={selectedButton.action.command || ''}
+                                            onChange={e => updateButton(selectedKey, {
+                                                action: { type: 'command', command: e.target.value }
+                                            })}
+                                            className="w-full px-3 py-2.5"
+                                        >
+                                            <option value="">Select a command...</option>
+                                            <option value="clear">Clear All Keys</option>
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Clear Button Config */}
+                                <div className="pt-4 border-t border-surface-700">
+                                    <button
+                                        onClick={() => {
+                                            setConfig(prev => {
+                                                const pageButtons = [...(prev.pages[currentView] || [])];
+                                                const idx = pageButtons.findIndex(b => b.key === selectedKey);
+                                                if (idx >= 0) pageButtons.splice(idx, 1);
+                                                return {
+                                                    ...prev,
+                                                    pages: {
+                                                        ...prev.pages,
+                                                        [currentView]: pageButtons
+                                                    }
+                                                };
+                                            });
+                                        }}
+                                        className="w-full px-3 py-2 bg-surface-700 hover:bg-surface-600 text-surface-400 rounded-lg text-sm"
+                                    >
+                                        Clear Button Configuration
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

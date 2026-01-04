@@ -11,9 +11,9 @@ function getPhosphorIconPath(name: string): string | null {
 }
 
 export class IconManager {
-    static async getIconBuffer(icon: string, size: number, color: string = '#000000'): Promise<Buffer> {
+    static async getIconBuffer(icon: string, size: number, bgColor: string = '#000000', iconColor: string = '#ffffff'): Promise<Buffer> {
         // Reuse getIconJimp to get the image instance
-        const image = await IconManager.getIconJimp(icon, size, color);
+        const image = await IconManager.getIconJimp(icon, size, bgColor, iconColor);
         return IconManager.toRawBgr(image);
     }
 
@@ -43,7 +43,7 @@ export class IconManager {
     }
 
     // Helper to get Jimp instance directly
-    static async getIconJimp(icon: string | undefined, size: number, bgColor: string = '#000000'): Promise<Jimp> {
+    static async getIconJimp(icon: string | undefined, size: number, bgColor: string = '#000000', iconColor: string = '#ffffff'): Promise<Jimp> {
         if (!icon) {
             return new Jimp(size, size, bgColor);
         }
@@ -59,11 +59,11 @@ export class IconManager {
                 const fs = require('fs');
                 let svg = fs.readFileSync(svgPath, 'utf8');
 
-                // Colorize
+                // Colorize with provided iconColor
                 if (svg.includes('fill="')) {
-                    svg = svg.replace(/fill="[^"]*"/, 'fill="#ffffff"');
+                    svg = svg.replace(/fill="[^"]*"/g, `fill="${iconColor}"`);
                 } else {
-                    svg = svg.replace('<svg', '<svg fill="#ffffff" ');
+                    svg = svg.replace('<svg', `<svg fill="${iconColor}" `);
                 }
 
                 const resvg = new Resvg(svg, {
