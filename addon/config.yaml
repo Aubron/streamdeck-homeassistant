@@ -1,6 +1,6 @@
 name: "Stream Deck Manager"
 description: "Configure and manage Stream Deck devices via MQTT"
-version: "1.0.0"
+version: "1.0.1"
 slug: "streamdeck_manager"
 url: "https://github.com/Aubron/streamdeck-homeassistant"
 arch:
