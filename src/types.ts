@@ -28,6 +28,25 @@ export type Action = MqttAction | NavigateAction | CommandAction | HomeAssistant
 
 export type TitleAlign = 'top' | 'middle' | 'bottom';
 
+// Entity state for lights (from Home Assistant)
+export interface LightState {
+    state: 'on' | 'off' | 'unavailable' | 'unknown';
+    brightness?: number; // 0-255
+    rgb_color?: [number, number, number];
+    hs_color?: [number, number]; // hue, saturation
+    color_temp?: number;
+    color_mode?: string;
+}
+
+// Generic entity state
+export interface EntityState {
+    entity_id: string;
+    state: string;
+    attributes: Record<string, any>;
+    last_changed: string;
+    last_updated: string;
+}
+
 export interface ButtonConfig {
     key: number;
     text?: string;
@@ -37,6 +56,9 @@ export interface ButtonConfig {
     textColor?: string; // Text color (default: #ffffff)
     titleAlign?: TitleAlign; // Vertical alignment (default: 'middle')
     action?: Action;
+    // Entity state styling
+    useEntityState?: boolean; // If true, style button based on entity state
+    stateEntity?: string; // Entity to track (defaults to action.entityId if not set)
 }
 
 export interface PageConfig {

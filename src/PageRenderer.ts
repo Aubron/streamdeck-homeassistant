@@ -1,16 +1,72 @@
 import { StreamDeck } from '@elgato-stream-deck/node';
-import { PageConfig, ButtonConfig } from './types';
+import { PageConfig, ButtonConfig, EntityState } from './types';
 import { IconManager } from './IconManager';
 import { createHash } from 'crypto';
 import Jimp from 'jimp';
+import { StateManager, computeLightStyle } from './StateManager';
 
 export class PageRenderer {
     private device: StreamDeck;
     // Hash-based cache: hash of rendering attributes → rendered buffer
     private cache: Map<string, Buffer> = new Map();
+    private stateManager: StateManager | null = null;
 
     constructor(device: StreamDeck) {
         this.device = device;
+    }
+
+    setStateManager(stateManager: StateManager) {
+        this.stateManager = stateManager;
+    }
+
+    /**
+     * Get effective button config after applying entity state styling
+     */
+    private getEffectiveConfig(buttonConfig: ButtonConfig): ButtonConfig {
+        if (!buttonConfig.useEntityState || !this.stateManager) {
+            return buttonConfig;
+        }
+
+        // Determine which entity to track
+        const entityId = buttonConfig.stateEntity ||
+            (buttonConfig.action?.type === 'ha' ? buttonConfig.action.entityId : undefined);
+
+        if (!entityId) {
+            return buttonConfig;
+        }
+
+        const state = this.stateManager.getState(entityId);
+
+        // Determine entity domain for appropriate styling
+        const domain = entityId.split('.')[0];
+
+        if (domain === 'light') {
+            const style = computeLightStyle(state, buttonConfig);
+            return {
+                ...buttonConfig,
+                color: style.color,
+                iconColor: style.iconColor,
+                textColor: style.textColor,
+                icon: style.icon
+            };
+        }
+
+        // For other domains, just show basic on/off styling
+        if (state && state.state === 'on') {
+            return {
+                ...buttonConfig,
+                color: buttonConfig.color || '#1a5f1a', // Green-ish for on
+                iconColor: '#ffffff',
+                textColor: '#ffffff'
+            };
+        } else {
+            return {
+                ...buttonConfig,
+                color: '#1a1a1a',
+                iconColor: '#666666',
+                textColor: '#888888'
+            };
+        }
     }
 
     /**
@@ -18,15 +74,15 @@ export class PageRenderer {
      * This hash uniquely identifies how a button will look based on all
      * attributes that affect its visual appearance.
      */
-    private getButtonHash(buttonConfig: ButtonConfig): string {
-        // Include all properties that affect rendering
+    private getButtonHash(buttonConfig: ButtonConfig, effectiveConfig: ButtonConfig): string {
+        // Include all properties that affect rendering (use effective config for actual visual attributes)
         const hashInput = {
-            text: buttonConfig.text || '',
-            icon: buttonConfig.icon || '',
-            color: buttonConfig.color || '#333333',
-            iconColor: buttonConfig.iconColor || '#ffffff',
-            textColor: buttonConfig.textColor || '#ffffff',
-            titleAlign: buttonConfig.titleAlign || 'middle',
+            text: effectiveConfig.text || '',
+            icon: effectiveConfig.icon || '',
+            color: effectiveConfig.color || '#333333',
+            iconColor: effectiveConfig.iconColor || '#ffffff',
+            textColor: effectiveConfig.textColor || '#ffffff',
+            titleAlign: effectiveConfig.titleAlign || 'middle',
             // Include device icon size since it affects the rendered output
             size: this.device.ICON_SIZE,
         };
@@ -45,7 +101,9 @@ export class PageRenderer {
      * Uses hash-based caching to avoid re-rendering identical configurations.
      */
     private async getKeyBuffer(buttonConfig: ButtonConfig): Promise<Buffer | null> {
-        const hash = this.getButtonHash(buttonConfig);
+        // Get effective config after applying entity state
+        const effectiveConfig = this.getEffectiveConfig(buttonConfig);
+        const hash = this.getButtonHash(buttonConfig, effectiveConfig);
 
         // Check cache first
         const cached = this.cache.get(hash);
@@ -53,8 +111,8 @@ export class PageRenderer {
             return cached;
         }
 
-        // Render the button
-        const buffer = await this.renderButton(buttonConfig);
+        // Render the button using effective config
+        const buffer = await this.renderButtonToBuffer(effectiveConfig);
 
         // Cache the result if we got a valid buffer
         if (buffer) {
@@ -68,7 +126,7 @@ export class PageRenderer {
      * Internal method to actually render a button to a buffer.
      * This is called when the cache doesn't have the rendered image.
      */
-    private async renderButton(buttonConfig: ButtonConfig): Promise<Buffer | null> {
+    private async renderButtonToBuffer(buttonConfig: ButtonConfig): Promise<Buffer | null> {
         const bgColor = buttonConfig.color || '#333333';
         const iconColor = buttonConfig.iconColor || '#ffffff';
         const textColor = buttonConfig.textColor || '#ffffff';
@@ -152,6 +210,21 @@ export class PageRenderer {
             return buffer;
         }
         return null;
+    }
+
+    /**
+     * Render a single key to the Stream Deck.
+     * Used when entity state changes require updating specific buttons.
+     */
+    async renderKey(keyIndex: number, buttonConfig: ButtonConfig): Promise<void> {
+        try {
+            const buffer = await this.getKeyBuffer(buttonConfig);
+            if (buffer) {
+                await this.device.fillKeyBuffer(keyIndex, buffer);
+            }
+        } catch (e) {
+            console.error(`Error rendering key ${keyIndex}:`, e);
+        }
     }
 
     /**
