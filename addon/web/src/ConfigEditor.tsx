@@ -60,6 +60,8 @@ export default function ConfigEditor({ device }: Props) {
     const [currentView, setCurrentView] = useState('default');
     const [selectedKey, setSelectedKey] = useState<number | null>(null);
     const [deploying, setDeploying] = useState(false);
+    const [resetting, setResetting] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [newViewName, setNewViewName] = useState('');
     const [showNewViewInput, setShowNewViewInput] = useState(false);
@@ -180,6 +182,32 @@ export default function ConfigEditor({ device }: Props) {
         setDeploying(false);
     };
 
+    const resetConfig = async () => {
+        setResetting(true);
+        setMessage(null);
+        setShowResetConfirm(false);
+
+        try {
+            const res = await fetch(`${getBasePath()}/api/devices/${device.id}/config`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setConfig(data.config);
+                setCurrentView('default');
+                setSelectedKey(null);
+                setMessage({ type: 'success', text: 'Configuration reset to defaults!' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to reset config' });
+            }
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Network error' });
+        }
+
+        setResetting(false);
+    };
+
     const selectedButton = selectedKey !== null ? getButtonConfig(selectedKey) : null;
 
     // Convert entities to autocomplete options
@@ -204,6 +232,36 @@ export default function ConfigEditor({ device }: Props) {
 
     return (
         <div>
+            {/* Reset Confirmation Modal */}
+            {showResetConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-surface-800 rounded-xl p-6 max-w-md mx-4 border border-surface-700">
+                        <h3 className="text-lg font-semibold text-surface-100 mb-3">
+                            Reset Configuration?
+                        </h3>
+                        <p className="text-surface-400 mb-6">
+                            This will clear all button configurations and delete all custom views.
+                            Only the default view will remain, with no buttons configured.
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowResetConfirm(false)}
+                                className="px-4 py-2 rounded-lg font-medium bg-surface-700 hover:bg-surface-600 text-surface-300 transition-colors duration-150"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={resetConfig}
+                                className="px-4 py-2 rounded-lg font-medium bg-error-600 hover:bg-error-500 text-white transition-colors duration-150"
+                            >
+                                Reset Everything
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div>
@@ -212,18 +270,32 @@ export default function ConfigEditor({ device }: Props) {
                         {device.columns}x{device.rows} layout • {device.keyCount} buttons
                     </p>
                 </div>
-                <button
-                    onClick={deploy}
-                    disabled={deploying}
-                    className={`
-                        px-5 py-2.5 rounded-lg font-medium text-white
-                        bg-primary-500 hover:bg-primary-600
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        transition-colors duration-150
-                    `}
-                >
-                    {deploying ? 'Deploying...' : 'Deploy Configuration'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowResetConfirm(true)}
+                        disabled={resetting}
+                        className={`
+                            px-4 py-2.5 rounded-lg font-medium
+                            bg-surface-700 hover:bg-surface-600 text-surface-300
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            transition-colors duration-150
+                        `}
+                    >
+                        {resetting ? 'Resetting...' : 'Reset to Defaults'}
+                    </button>
+                    <button
+                        onClick={deploy}
+                        disabled={deploying}
+                        className={`
+                            px-5 py-2.5 rounded-lg font-medium text-white
+                            bg-primary-500 hover:bg-primary-600
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            transition-colors duration-150
+                        `}
+                    >
+                        {deploying ? 'Deploying...' : 'Deploy Configuration'}
+                    </button>
+                </div>
             </div>
 
             {/* View Selector */}
