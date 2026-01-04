@@ -1,43 +1,49 @@
-
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import { DeviceConfig } from './types';
-import defaultConfig from '../config/default';
+
+const CONFIG_DIR = path.resolve(__dirname, '../config');
+const CACHE_FILE = path.join(CONFIG_DIR, 'cached.json');
 
 export class ConfigManager {
-    static loadConfig(deviceId: string): DeviceConfig {
-        // Run from src (tsx) or dist/src (node)
-        // src -> .. -> config
-        const configPath = path.resolve(__dirname, `../config/${deviceId}.ts`);
-        const jsConfigPath = path.resolve(__dirname, `../config/${deviceId}.js`);
-
-        // Since we are running with tsx in dev, we can import .ts?
-        // But dynamic import might be tricky.
-        // Let's try to require it if we can.
-
-        // Actually, if we compile to JS, we look for .js.
-        // If we run `tsx`, we can require .ts.
-
+    /**
+     * Load cached config from JSON file
+     * Returns null if no cache exists
+     */
+    static getCachedConfig(): DeviceConfig | null {
         try {
-            // Try to dynamic import? Or just standard require.
-            // Note: in webpack/bundlers dynamic required is hard. Here in node it's fine.
-            if (fs.existsSync(configPath)) {
-                console.log(`Loading config from ${configPath}`);
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const userConfig = require(configPath).default || require(configPath);
-                return { ...defaultConfig, ...userConfig };
-            }
-            if (fs.existsSync(jsConfigPath)) {
-                console.log(`Loading config from ${jsConfigPath}`);
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const userConfig = require(jsConfigPath).default || require(jsConfigPath);
-                return { ...defaultConfig, ...userConfig };
+            if (fs.existsSync(CACHE_FILE)) {
+                const data = fs.readFileSync(CACHE_FILE, 'utf-8');
+                const config = JSON.parse(data) as DeviceConfig;
+                console.log('Loaded cached config from', CACHE_FILE);
+                return config;
             }
         } catch (e) {
-            console.error(`Error loading config for ${deviceId}:`, e);
+            console.error('Error loading cached config:', e);
         }
+        return null;
+    }
 
-        console.log('Using default config');
-        return defaultConfig;
+    /**
+     * Save config to cache file for startup reliability
+     */
+    static saveConfig(config: DeviceConfig): void {
+        try {
+            // Ensure config directory exists
+            if (!fs.existsSync(CONFIG_DIR)) {
+                fs.mkdirSync(CONFIG_DIR, { recursive: true });
+            }
+            fs.writeFileSync(CACHE_FILE, JSON.stringify(config, null, 2));
+            console.log('Saved config to cache:', CACHE_FILE);
+        } catch (e) {
+            console.error('Error saving config to cache:', e);
+        }
+    }
+
+    /**
+     * Check if a cached config exists
+     */
+    static hasCachedConfig(): boolean {
+        return fs.existsSync(CACHE_FILE);
     }
 }

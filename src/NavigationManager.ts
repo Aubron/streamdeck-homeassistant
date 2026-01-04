@@ -29,6 +29,24 @@ export class NavigationManager {
         await this.navigateTo('default');
     }
 
+    /**
+     * Update config and restart rendering
+     */
+    async updateConfig(newConfig: DeviceConfig) {
+        console.log('Updating config and restarting...');
+        this.config = newConfig;
+        this.renderer.clearCache();
+
+        // Apply brightness if specified
+        if (newConfig.brightness !== undefined) {
+            await this.myStreamDeck.setBrightness(newConfig.brightness);
+        }
+
+        // Prewarm and navigate to default page
+        this.renderer.prewarm(this.config.pages).catch(e => console.error('Prewarming failed:', e));
+        await this.navigateTo('default');
+    }
+
     async navigateTo(pageName: string) {
         if (this.config.pages[pageName]) {
             this.currentPage = pageName;

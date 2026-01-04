@@ -11,6 +11,13 @@ export class PageRenderer {
         this.device = device;
     }
 
+    /**
+     * Clear the render cache (call when config changes)
+     */
+    clearCache() {
+        this.cache.clear();
+    }
+
     async prewarm(pages: { [key: string]: any }) {
         console.log('Starting prewarming of pages...');
         const start = Date.now();
