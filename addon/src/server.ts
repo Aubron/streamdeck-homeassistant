@@ -64,6 +64,22 @@ app.post('/api/devices/:deviceId/config', async (req, res) => {
     }
 });
 
+// Reset device config to defaults
+app.delete('/api/devices/:deviceId/config', async (req, res) => {
+    const { deviceId } = req.params;
+
+    // Reset config in database and get the default config
+    const defaultConfig = db.resetDeviceConfig(deviceId);
+
+    // Deploy the reset config to device via MQTT
+    try {
+        await mqttHandler.deployConfig(deviceId, defaultConfig);
+        res.json({ success: true, message: 'Config reset to defaults', config: defaultConfig });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to deploy reset config' });
+    }
+});
+
 // Get Home Assistant entities
 app.get('/api/ha/entities', async (req, res) => {
     if (!SUPERVISOR_TOKEN) {

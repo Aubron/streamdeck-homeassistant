@@ -103,4 +103,14 @@ export class Database {
         this.data.configs[id] = config;
         this.save();
     }
+
+    resetDeviceConfig(id: string): DeviceConfig {
+        const defaultConfig: DeviceConfig = {
+            brightness: 80,
+            pages: { default: [] }
+        };
+        this.data.configs[id] = defaultConfig;
+        this.save();
+        return defaultConfig;
+    }
 }
