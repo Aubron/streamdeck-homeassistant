@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import Autocomplete from './Autocomplete';
 
 interface Device {
     id: string;
@@ -61,8 +62,6 @@ export default function ConfigEditor({ device }: Props) {
     // Home Assistant data
     const [entities, setEntities] = useState<HAEntity[]>([]);
     const [services, setServices] = useState<HAService[]>([]);
-    const [entitySearch, setEntitySearch] = useState('');
-    const [serviceSearch, setServiceSearch] = useState('');
 
     // Load config
     useEffect(() => {
@@ -178,34 +177,25 @@ export default function ConfigEditor({ device }: Props) {
 
     const selectedButton = selectedKey !== null ? getButtonConfig(selectedKey) : null;
 
-    // Filter entities for dropdown
-    const filteredEntities = useMemo(() => {
-        if (!entitySearch) return entities.slice(0, 100);
-        const search = entitySearch.toLowerCase();
-        return entities.filter(e =>
-            e.entity_id.toLowerCase().includes(search) ||
-            e.name.toLowerCase().includes(search)
-        ).slice(0, 100);
-    }, [entities, entitySearch]);
+    // Convert entities to autocomplete options
+    const entityOptions = useMemo(() => {
+        return entities.map(e => ({
+            value: e.entity_id,
+            label: e.name || e.entity_id,
+            group: e.domain,
+            sublabel: `${e.entity_id} (${e.state})`,
+        }));
+    }, [entities]);
 
-    // Filter services for dropdown
-    const filteredServices = useMemo(() => {
-        if (!serviceSearch) return services.slice(0, 100);
-        const search = serviceSearch.toLowerCase();
-        return services.filter(s =>
-            s.service.toLowerCase().includes(search)
-        ).slice(0, 100);
-    }, [services, serviceSearch]);
-
-    // Group entities by domain
-    const groupedEntities = useMemo(() => {
-        const groups: { [domain: string]: HAEntity[] } = {};
-        for (const entity of filteredEntities) {
-            if (!groups[entity.domain]) groups[entity.domain] = [];
-            groups[entity.domain].push(entity);
-        }
-        return groups;
-    }, [filteredEntities]);
+    // Convert services to autocomplete options
+    const serviceOptions = useMemo(() => {
+        return services.map(s => ({
+            value: s.service,
+            label: s.service,
+            group: s.domain,
+            sublabel: s.name,
+        }));
+    }, [services]);
 
     return (
         <div>
@@ -454,7 +444,7 @@ export default function ConfigEditor({ device }: Props) {
                                         className="w-full px-3 py-2.5"
                                     >
                                         <option value="">None</option>
-                                        <option value="ha">Home Assistant Service</option>
+                                        <option value="ha">Home Assistant Action</option>
                                         <option value="navigate">Navigate to View</option>
                                         <option value="mqtt">MQTT Publish</option>
                                         <option value="command">Command</option>
@@ -469,27 +459,15 @@ export default function ConfigEditor({ device }: Props) {
                                             <label className="block text-sm font-medium text-surface-400 mb-1.5">
                                                 Service
                                             </label>
-                                            <input
-                                                type="text"
-                                                placeholder="Search services..."
-                                                value={serviceSearch}
-                                                onChange={e => setServiceSearch(e.target.value)}
-                                                className="w-full px-3 py-2 mb-2 text-sm"
-                                            />
-                                            <select
+                                            <Autocomplete
+                                                options={serviceOptions}
                                                 value={selectedButton.action.service || ''}
-                                                onChange={e => updateButton(selectedKey, {
-                                                    action: { ...selectedButton.action, type: 'ha', service: e.target.value }
+                                                onChange={value => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'ha', service: value }
                                                 })}
-                                                className="w-full px-3 py-2.5"
-                                            >
-                                                <option value="">Select a service...</option>
-                                                {filteredServices.map(s => (
-                                                    <option key={s.service} value={s.service}>
-                                                        {s.service}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                placeholder="Search services..."
+                                                groupBy={true}
+                                            />
                                         </div>
 
                                         {/* Entity Selector */}
@@ -497,42 +475,14 @@ export default function ConfigEditor({ device }: Props) {
                                             <label className="block text-sm font-medium text-surface-400 mb-1.5">
                                                 Entity
                                             </label>
-                                            <input
-                                                type="text"
+                                            <Autocomplete
+                                                options={entityOptions}
+                                                value={selectedButton.action.entityId || ''}
+                                                onChange={value => updateButton(selectedKey, {
+                                                    action: { ...selectedButton.action, type: 'ha', entityId: value }
+                                                })}
                                                 placeholder="Search entities..."
-                                                value={entitySearch}
-                                                onChange={e => setEntitySearch(e.target.value)}
-                                                className="w-full px-3 py-2 mb-2 text-sm"
-                                            />
-                                            <select
-                                                value={selectedButton.action.entityId || ''}
-                                                onChange={e => updateButton(selectedKey, {
-                                                    action: { ...selectedButton.action, type: 'ha', entityId: e.target.value }
-                                                })}
-                                                className="w-full px-3 py-2.5"
-                                            >
-                                                <option value="">Select an entity...</option>
-                                                {Object.entries(groupedEntities).map(([domain, domainEntities]) => (
-                                                    <optgroup key={domain} label={domain}>
-                                                        {domainEntities.map(entity => (
-                                                            <option key={entity.entity_id} value={entity.entity_id}>
-                                                                {entity.name} ({entity.state})
-                                                            </option>
-                                                        ))}
-                                                    </optgroup>
-                                                ))}
-                                            </select>
-                                            <p className="mt-1.5 text-xs text-surface-600">
-                                                Or type manually:
-                                            </p>
-                                            <input
-                                                type="text"
-                                                placeholder="light.living_room"
-                                                value={selectedButton.action.entityId || ''}
-                                                onChange={e => updateButton(selectedKey, {
-                                                    action: { ...selectedButton.action, type: 'ha', entityId: e.target.value }
-                                                })}
-                                                className="w-full px-3 py-2 mt-1"
+                                                groupBy={true}
                                             />
                                         </div>
                                     </div>
