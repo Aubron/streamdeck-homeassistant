@@ -26,6 +26,8 @@ interface ButtonConfig {
         type: 'ha' | 'navigate' | 'mqtt' | 'command';
         [key: string]: any;
     };
+    useEntityState?: boolean;
+    stateEntity?: string;
 }
 
 interface DeviceConfig {
@@ -539,6 +541,49 @@ export default function ConfigEditor({ device }: Props) {
                                                 placeholder="Search entities..."
                                                 groupBy={true}
                                             />
+                                        </div>
+
+                                        {/* Entity State Styling */}
+                                        <div className="pt-2 border-t border-surface-700">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id="use-entity-state"
+                                                    checked={selectedButton.useEntityState || false}
+                                                    onChange={e => updateButton(selectedKey, {
+                                                        useEntityState: e.target.checked
+                                                    })}
+                                                    className="w-4 h-4 rounded"
+                                                />
+                                                <label htmlFor="use-entity-state" className="text-sm font-medium text-surface-300">
+                                                    Use entity state to style button
+                                                </label>
+                                            </div>
+                                            {selectedButton.useEntityState && (
+                                                <div className="ml-6">
+                                                    <p className="text-xs text-surface-500 mb-2">
+                                                        Button appearance will update based on entity state.
+                                                        For lights: shows on/off state with color and brightness.
+                                                    </p>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-surface-500 mb-1">
+                                                            Track different entity (optional)
+                                                        </label>
+                                                        <Autocomplete
+                                                            options={entityOptions}
+                                                            value={selectedButton.stateEntity || ''}
+                                                            onChange={value => updateButton(selectedKey, {
+                                                                stateEntity: value || undefined
+                                                            })}
+                                                            placeholder={selectedButton.action.entityId || 'Uses action entity...'}
+                                                            groupBy={true}
+                                                        />
+                                                        <p className="text-xs text-surface-600 mt-1">
+                                                            Leave empty to use the action's entity
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

@@ -1,8 +1,9 @@
 import { PageRenderer } from './PageRenderer';
 import { HomeAssistantClient } from './HomeAssistantClient';
-import { DeviceConfig, Action, MqttAction, CommandAction, HomeAssistantAction } from './types';
+import { DeviceConfig, Action, MqttAction, CommandAction, HomeAssistantAction, EntityState } from './types';
 import { MqttClient } from 'mqtt';
 import { ConfigManager } from './ConfigManager';
+import { StateManager } from './StateManager';
 
 export class NavigationManager {
     private renderer: PageRenderer;
@@ -12,16 +13,48 @@ export class NavigationManager {
     private myStreamDeck: any;
     private mqttClient: MqttClient;
     private configManager: ConfigManager;
+    private stateManager: StateManager;
     private currentBrightness: number = 50; // Track current brightness for increment/decrement commands
     private savedBrightness: number = 50; // Saved brightness for LCD on/off toggle
 
-    constructor(myStreamDeck: any, client: MqttClient, configManager: ConfigManager, renderer: PageRenderer, config: DeviceConfig) {
+    constructor(myStreamDeck: any, client: MqttClient, configManager: ConfigManager, renderer: PageRenderer, config: DeviceConfig, stateManager: StateManager) {
         this.myStreamDeck = myStreamDeck;
         this.mqttClient = client;
         this.configManager = configManager;
         this.renderer = renderer;
         this.config = config;
         this.haClient = new HomeAssistantClient();
+        this.stateManager = stateManager;
+
+        // Set up state change listener
+        this.stateManager.on('stateChanged', this.handleStateChange.bind(this));
+
+        // Update tracked entities from config
+        this.stateManager.updateTrackedEntities(config);
+    }
+
+    /**
+     * Handle entity state changes from Home Assistant
+     */
+    private async handleStateChange(entityId: string, state: EntityState) {
+        console.log(`State changed: ${entityId} -> ${state.state}`);
+
+        // Find buttons on the current page that use this entity
+        const page = this.config.pages[this.currentPage];
+        if (!page) return;
+
+        for (const button of page) {
+            if (!button.useEntityState) continue;
+
+            const trackedEntity = button.stateEntity ||
+                (button.action?.type === 'ha' ? button.action.entityId : undefined);
+
+            if (trackedEntity === entityId) {
+                // Re-render this button
+                console.log(`Re-rendering button ${button.key} for entity ${entityId}`);
+                await this.renderer.renderKey(button.key, button);
+            }
+        }
     }
 
     async start() {
@@ -34,6 +67,9 @@ export class NavigationManager {
     async updateConfig(newConfig: DeviceConfig) {
         console.log('Updating config...');
         this.config = newConfig;
+
+        // Update tracked entities for state-based styling
+        this.stateManager.updateTrackedEntities(newConfig);
 
         // Apply brightness if specified
         if (newConfig.brightness !== undefined) {

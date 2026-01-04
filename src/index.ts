@@ -4,6 +4,7 @@ import Jimp from 'jimp';
 import { ConfigManager } from './ConfigManager';
 import { PageRenderer } from './PageRenderer';
 import { NavigationManager } from './NavigationManager';
+import { StateManager } from './StateManager';
 import { DeviceConfig } from './types';
 import { createHash } from 'crypto';
 
@@ -35,6 +36,7 @@ const client = mqtt.connect(MQTT_URL, {
 let myStreamDeck: StreamDeck | null = null;
 let navManager: NavigationManager | null = null;
 let renderer: PageRenderer | null = null;
+let stateManager: StateManager | null = null;
 
 client.on('connect', () => {
     console.log('Connected to MQTT broker');
@@ -128,6 +130,16 @@ async function main() {
         // Initialize Renderer
         renderer = new PageRenderer(myStreamDeck);
 
+        // Initialize StateManager for entity state tracking
+        stateManager = new StateManager();
+        renderer.setStateManager(stateManager);
+
+        // Connect to Home Assistant WebSocket for state updates
+        stateManager.connect().catch(err => {
+            console.warn('StateManager: Failed to connect to Home Assistant WebSocket:', err.message);
+            console.warn('StateManager: Entity state styling will not work until connected');
+        });
+
         // Try to load cached config
         const cachedConfig = ConfigManager.getCachedConfig();
 
@@ -138,7 +150,7 @@ async function main() {
                 await myStreamDeck.setBrightness(cachedConfig.brightness);
             }
             const configManager = new ConfigManager();
-            navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, cachedConfig);
+            navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, cachedConfig, stateManager);
             await navManager.start();
         } else {
             // No config - show "waiting for config" state
@@ -148,7 +160,7 @@ async function main() {
             // Create a minimal empty config for initialization
             const emptyConfig: DeviceConfig = { pages: { default: [] } };
             const configManager = new ConfigManager();
-            navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, emptyConfig);
+            navManager = new NavigationManager(myStreamDeck, client, configManager, renderer, emptyConfig, stateManager);
 
             // Display "waiting" indicator on first key
             try {
@@ -338,6 +350,9 @@ client.on('message', async (topic, message) => {
 
 // Handle Exit
 process.on('SIGINT', async () => {
+    if (stateManager) {
+        stateManager.disconnect();
+    }
     if (myStreamDeck) {
         try {
             for (let i = 0; i < myStreamDeck.NUM_KEYS; i++) {
