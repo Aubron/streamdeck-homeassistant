@@ -98,7 +98,9 @@ export class IconManager {
             jimpImage = new Jimp(size, size, bgColor);
         }
 
-        jimpImage.resize(size, size);
+        // Use cover mode: resize to fill the area while maintaining aspect ratio, then center crop
+        // This prevents non-square images from being stretched/skewed
+        jimpImage.cover(size, size);
 
         // If we want to composite over background color (for PNGs/SVGs with transparency)
         if (bgColor) {

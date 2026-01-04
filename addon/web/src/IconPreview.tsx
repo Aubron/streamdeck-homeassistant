@@ -5,6 +5,8 @@ interface IconPreviewProps {
     icon?: string;
     iconColor?: string;
     size?: number;
+    /** When true, icon/image fills container using cover mode (like Stream Deck rendering) */
+    fillContainer?: boolean;
 }
 
 // Convert kebab-case to PascalCase: "arrow-left" -> "ArrowLeft"
@@ -55,7 +57,7 @@ function usePhosphorIcon(iconName: string | null): ComponentType<IconProps> | nu
     return IconComponent;
 }
 
-export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: IconPreviewProps) {
+export default function IconPreview({ icon, iconColor = '#ffffff', size = 40, fillContainer = false }: IconPreviewProps) {
     // Extract phosphor icon name if applicable
     const phosphorIconName = useMemo(() => {
         if (icon?.startsWith('ph:')) {
@@ -76,7 +78,7 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
             if (IconComponent) {
                 return (
                     <IconComponent
-                        size={size}
+                        size={fillContainer ? '100%' : size}
                         color={iconColor}
                         weight="regular"
                     />
@@ -85,7 +87,7 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
             // Loading or not found - show placeholder
             return (
                 <div
-                    style={{ width: size, height: size }}
+                    style={fillContainer ? { width: '100%', height: '100%' } : { width: size, height: size }}
                     className="animate-pulse bg-white/10 rounded"
                 />
             );
@@ -97,7 +99,11 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
                 <img
                     src={icon}
                     alt="icon"
-                    style={{
+                    style={fillContainer ? {
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                    } : {
                         width: size,
                         height: size,
                         objectFit: 'contain'
@@ -117,7 +123,7 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
 
         // Unknown format - show text
         return <span className="text-[8px] opacity-50 truncate max-w-full">{icon}</span>;
-    }, [icon, iconColor, size, IconComponent]);
+    }, [icon, iconColor, size, fillContainer, IconComponent]);
 
     return (
         <div className="flex items-center justify-center w-full h-full">
