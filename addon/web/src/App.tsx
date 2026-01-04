@@ -20,15 +20,18 @@ export default function App() {
     const [ws, setWs] = useState<WebSocket | null>(null);
 
     useEffect(() => {
+        // Get base path for API calls (handles Home Assistant ingress)
+        const basePath = window.location.pathname.replace(/\/$/, '');
+
         // Fetch initial devices
-        fetch('/api/devices')
+        fetch(`${basePath}/api/devices`)
             .then(res => res.json())
             .then(setDevices)
             .catch(console.error);
 
         // Setup WebSocket for real-time updates
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+        const socket = new WebSocket(`${protocol}//${window.location.host}${basePath}`);
 
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
