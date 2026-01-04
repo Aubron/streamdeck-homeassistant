@@ -421,19 +421,22 @@ export default function ConfigEditor({ device }: Props) {
                                     `}
                                     style={{ backgroundColor: bgColor }}
                                 >
+                                    {/* Icon/image rendered as background layer */}
                                     {hasIcon && (
-                                        <div className={hasText ? 'mb-0.5 flex-shrink-0' : 'flex-shrink-0'}>
+                                        <div className="absolute inset-0">
                                             <IconPreview
                                                 icon={btn?.icon}
                                                 iconColor={iconColor}
-                                                size={hasText ? 32 : 40}
+                                                size={72}
+                                                fillContainer
                                             />
                                         </div>
                                     )}
+                                    {/* Text rendered on top of icon */}
                                     {hasText ? (
                                         <span
                                             style={{ color: textColor }}
-                                            className="drop-shadow-md text-[10px] leading-tight max-w-full px-0.5 text-center break-words line-clamp-3"
+                                            className="relative z-10 drop-shadow-md text-[10px] leading-tight max-w-full px-0.5 text-center break-words line-clamp-3"
                                         >
                                             {btn.text}
                                         </span>
