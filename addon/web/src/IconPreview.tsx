@@ -1,6 +1,5 @@
-import * as PhosphorIcons from '@phosphor-icons/react';
-import { IconProps } from '@phosphor-icons/react';
-import { ComponentType, useMemo } from 'react';
+import { ComponentType, useState, useEffect, useMemo } from 'react';
+import type { IconProps } from '@phosphor-icons/react';
 
 interface IconPreviewProps {
     icon?: string;
@@ -16,14 +15,57 @@ function kebabToPascal(str: string): string {
         .join('');
 }
 
-// Get Phosphor icon component by name
-function getPhosphorIcon(name: string): ComponentType<IconProps> | null {
-    const pascalName = kebabToPascal(name);
-    const icons = PhosphorIcons as Record<string, ComponentType<IconProps>>;
-    return icons[pascalName] || null;
+// Cache for loaded icon components
+const iconCache = new Map<string, ComponentType<IconProps>>();
+
+// Dynamic icon loader
+function usePhosphorIcon(iconName: string | null): ComponentType<IconProps> | null {
+    const [IconComponent, setIconComponent] = useState<ComponentType<IconProps> | null>(
+        iconName ? iconCache.get(iconName) || null : null
+    );
+
+    useEffect(() => {
+        if (!iconName) {
+            setIconComponent(null);
+            return;
+        }
+
+        // Check cache first
+        const cached = iconCache.get(iconName);
+        if (cached) {
+            setIconComponent(cached);
+            return;
+        }
+
+        // Dynamic import
+        const pascalName = kebabToPascal(iconName);
+        import('@phosphor-icons/react')
+            .then((module) => {
+                const Icon = (module as Record<string, ComponentType<IconProps>>)[pascalName];
+                if (Icon) {
+                    iconCache.set(iconName, Icon);
+                    setIconComponent(Icon);
+                }
+            })
+            .catch(() => {
+                // Icon not found, ignore
+            });
+    }, [iconName]);
+
+    return IconComponent;
 }
 
 export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: IconPreviewProps) {
+    // Extract phosphor icon name if applicable
+    const phosphorIconName = useMemo(() => {
+        if (icon?.startsWith('ph:')) {
+            return icon.replace(/^ph:/, '');
+        }
+        return null;
+    }, [icon]);
+
+    const IconComponent = usePhosphorIcon(phosphorIconName);
+
     const renderContent = useMemo(() => {
         if (!icon) {
             return null;
@@ -31,9 +73,6 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
 
         // Phosphor icon: ph:icon-name
         if (icon.startsWith('ph:')) {
-            const iconName = icon.replace(/^ph:/, '');
-            const IconComponent = getPhosphorIcon(iconName);
-
             if (IconComponent) {
                 return (
                     <IconComponent
@@ -43,8 +82,13 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
                     />
                 );
             }
-            // Fallback: show icon name if not found
-            return <span className="text-[8px] opacity-50">{iconName}</span>;
+            // Loading or not found - show placeholder
+            return (
+                <div
+                    style={{ width: size, height: size }}
+                    className="animate-pulse bg-white/10 rounded"
+                />
+            );
         }
 
         // Hex color: #RRGGBB - show a colored square
@@ -87,7 +131,7 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
 
         // Unknown format - show text
         return <span className="text-[8px] opacity-50 truncate max-w-full">{icon}</span>;
-    }, [icon, iconColor, size]);
+    }, [icon, iconColor, size, IconComponent]);
 
     return (
         <div className="flex items-center justify-center w-full h-full">
