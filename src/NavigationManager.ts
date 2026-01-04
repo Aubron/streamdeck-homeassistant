@@ -23,9 +23,6 @@ export class NavigationManager {
     }
 
     async start() {
-        // Start background prewarming
-        this.renderer.prewarm(this.config.pages).catch(e => console.error('Prewarming failed:', e));
-
         await this.navigateTo('default');
     }
 
@@ -33,17 +30,15 @@ export class NavigationManager {
      * Update config and restart rendering
      */
     async updateConfig(newConfig: DeviceConfig) {
-        console.log('Updating config and restarting...');
+        console.log('Updating config...');
         this.config = newConfig;
-        this.renderer.clearCache();
 
         // Apply brightness if specified
         if (newConfig.brightness !== undefined) {
             await this.myStreamDeck.setBrightness(newConfig.brightness);
         }
 
-        // Prewarm and navigate to default page
-        this.renderer.prewarm(this.config.pages).catch(e => console.error('Prewarming failed:', e));
+        // Navigate to default page - hash-based cache handles re-rendering efficiently
         await this.navigateTo('default');
     }
 
