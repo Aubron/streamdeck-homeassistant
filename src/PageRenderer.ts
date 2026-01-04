@@ -1,56 +1,73 @@
 import { StreamDeck } from '@elgato-stream-deck/node';
-import { PageConfig } from './types';
+import { PageConfig, ButtonConfig } from './types';
 import { IconManager } from './IconManager';
+import { createHash } from 'crypto';
 import Jimp from 'jimp';
 
 export class PageRenderer {
     private device: StreamDeck;
-    private cache: Map<string, Map<number, Buffer>> = new Map();
+    // Hash-based cache: hash of rendering attributes → rendered buffer
+    private cache: Map<string, Buffer> = new Map();
 
     constructor(device: StreamDeck) {
         this.device = device;
     }
 
     /**
-     * Clear the render cache (call when config changes)
+     * Generate a hash key for a button's rendering configuration.
+     * This hash uniquely identifies how a button will look based on all
+     * attributes that affect its visual appearance.
      */
-    clearCache() {
-        this.cache.clear();
+    private getButtonHash(buttonConfig: ButtonConfig): string {
+        // Include all properties that affect rendering
+        const hashInput = {
+            text: buttonConfig.text || '',
+            icon: buttonConfig.icon || '',
+            color: buttonConfig.color || '#333333',
+            iconColor: buttonConfig.iconColor || '#ffffff',
+            textColor: buttonConfig.textColor || '#ffffff',
+            // Include device icon size since it affects the rendered output
+            size: this.device.ICON_SIZE,
+        };
+        return createHash('md5').update(JSON.stringify(hashInput)).digest('hex');
     }
 
-    async prewarm(pages: { [key: string]: any }) {
-        console.log('Starting prewarming of pages...');
-        const start = Date.now();
-        for (const pageName in pages) {
-            const pageConfig = pages[pageName];
-            const pageCache = new Map<number, Buffer>();
+    /**
+     * Get cache statistics for debugging/monitoring
+     */
+    getCacheStats(): { size: number } {
+        return { size: this.cache.size };
+    }
 
-            // Handle both Array and Object configurations
-            const buttons = Object.values(pageConfig);
+    /**
+     * Get a rendered buffer for a button configuration.
+     * Uses hash-based caching to avoid re-rendering identical configurations.
+     */
+    private async getKeyBuffer(buttonConfig: ButtonConfig): Promise<Buffer | null> {
+        const hash = this.getButtonHash(buttonConfig);
 
-            for (const buttonConfig of buttons) {
-                if (!buttonConfig || typeof buttonConfig !== 'object') continue;
-                // Cast to any to access key safely if types are loose
-                const btn = buttonConfig as any;
-                const keyIndex = btn.key;
-
-                if (typeof keyIndex === 'number') {
-                    try {
-                        const buffer = await this.getKeyBuffer(btn);
-                        if (buffer) {
-                            pageCache.set(keyIndex, buffer);
-                        }
-                    } catch (e) {
-                        console.error(`Error prewarming key ${keyIndex} on page ${pageName}:`, e);
-                    }
-                }
-            }
-            this.cache.set(pageName, pageCache);
+        // Check cache first
+        const cached = this.cache.get(hash);
+        if (cached) {
+            return cached;
         }
-        console.log(`Prewarming complete in ${Date.now() - start}ms`);
+
+        // Render the button
+        const buffer = await this.renderButton(buttonConfig);
+
+        // Cache the result if we got a valid buffer
+        if (buffer) {
+            this.cache.set(hash, buffer);
+        }
+
+        return buffer;
     }
 
-    private async getKeyBuffer(buttonConfig: any): Promise<Buffer | null> {
+    /**
+     * Internal method to actually render a button to a buffer.
+     * This is called when the cache doesn't have the rendered image.
+     */
+    private async renderButton(buttonConfig: ButtonConfig): Promise<Buffer | null> {
         const bgColor = buttonConfig.color || '#333333';
         const iconColor = buttonConfig.iconColor || '#ffffff';
         const textColor = buttonConfig.textColor || '#ffffff';
@@ -106,44 +123,35 @@ export class PageRenderer {
         return null;
     }
 
+    /**
+     * Render a page to the Stream Deck.
+     * Uses hash-based caching internally - identical button configurations
+     * across any page will share the same cached buffer.
+     */
     async renderPage(pageConfig: PageConfig, pageName?: string) {
         try {
-            // clearAllKeys might no longer exist in types
             for (let i = 0; i < this.device.NUM_KEYS; i++) {
                 await this.device.clearKey(i);
             }
         } catch (e) {
-            // clear might fail on some devices if not ready, retry or ignore
+            // clear might fail on some devices if not ready, ignore
         }
-
-        const pageCache = pageName ? this.cache.get(pageName) : undefined;
 
         const buttons = Object.values(pageConfig);
 
         for (const buttonConfig of buttons) {
             if (!buttonConfig) continue;
-            const btn = buttonConfig as any; // Cast to avoid index signature issues if needed
+            const btn = buttonConfig as ButtonConfig;
             const keyIndex = btn.key;
 
             if (typeof keyIndex === 'number') {
                 try {
-                    let buffer: Buffer | null = null;
-
-                    // Try cache first
-                    if (pageCache && pageCache.has(keyIndex)) {
-                        buffer = pageCache.get(keyIndex)!;
-                    } else {
-                        // Render on demand
-                        buffer = await this.getKeyBuffer(buttonConfig);
-                    }
+                    // getKeyBuffer handles caching internally via hash
+                    const buffer = await this.getKeyBuffer(btn);
 
                     if (buffer) {
                         await this.device.fillKeyBuffer(keyIndex, buffer);
                     }
-                    // Fallback for color if not buffered logic (backward compat, though removed above)
-                    // If getKeyBuffer returned null but color existed, we might have skipped it?
-                    // My getKeyBuffer handles color now, so we are good.
-
                 } catch (e) {
                     console.error(`Error rendering key ${keyIndex}:`, e);
                 }
