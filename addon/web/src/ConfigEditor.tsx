@@ -407,6 +407,9 @@ export default function ConfigEditor({ device }: Props) {
                                     ? 'justify-end'
                                     : 'justify-center';
 
+                            // Phosphor icons get 8px padding, images (http/local) are full bleed
+                            const isPhosphorIcon = btn?.icon?.startsWith('ph:');
+
                             return (
                                 <button
                                     key={i}
@@ -421,13 +424,13 @@ export default function ConfigEditor({ device }: Props) {
                                     `}
                                     style={{ backgroundColor: bgColor }}
                                 >
-                                    {/* Icon/image rendered as background layer with 8px padding */}
+                                    {/* Icon/image rendered as background layer - 8px padding for icons, full bleed for images */}
                                     {hasIcon && (
-                                        <div className="absolute inset-[8px]">
+                                        <div className={isPhosphorIcon ? "absolute inset-[8px]" : "absolute inset-0"}>
                                             <IconPreview
                                                 icon={btn?.icon}
                                                 iconColor={iconColor}
-                                                size={56}
+                                                size={isPhosphorIcon ? 56 : 72}
                                                 fillContainer
                                             />
                                         </div>

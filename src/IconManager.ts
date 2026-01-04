@@ -71,6 +71,14 @@ export class IconManager {
                 const pngBuffer = pngData.asPng();
 
                 jimpImage = await Jimp.read(pngBuffer);
+
+                // Apply 8px padding around Phosphor icons only
+                const padding = 8;
+                const iconSize = size - (padding * 2);
+                jimpImage.cover(iconSize, iconSize);
+                const bg = new Jimp(size, size, bgColor || '#000000');
+                bg.composite(jimpImage, padding, padding);
+                return bg;
             } else {
                 console.warn(`Icon ${icon} not found, using placeholder`);
                 jimpImage = new Jimp(size, size, bgColor);
@@ -98,17 +106,8 @@ export class IconManager {
             jimpImage = new Jimp(size, size, bgColor);
         }
 
-        // Apply 8px padding around the icon
-        const padding = 8;
-        const iconSize = size - (padding * 2);
-
-        // Use cover mode: resize to fill the padded area while maintaining aspect ratio, then center crop
-        // This prevents non-square images from being stretched/skewed
-        jimpImage.cover(iconSize, iconSize);
-
-        // Always composite over background color with padding
-        const bg = new Jimp(size, size, bgColor || '#000000');
-        bg.composite(jimpImage, padding, padding);
-        return bg;
+        // For images (local: and http), resize to fill the entire button (full bleed, no padding)
+        jimpImage.cover(size, size);
+        return jimpImage;
     }
 }
