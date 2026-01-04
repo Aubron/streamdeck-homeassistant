@@ -13,7 +13,8 @@ export interface NavigateAction {
 
 export interface CommandAction {
     type: 'command';
-    command: string; // e.g. 'clear'
+    command: string; // e.g. 'clear', 'brightness_up', 'brightness_down', 'lcd_on', 'lcd_off'
+    value?: number; // Optional value for commands like 'set_brightness' (0-100)
 }
 
 export interface HomeAssistantAction {

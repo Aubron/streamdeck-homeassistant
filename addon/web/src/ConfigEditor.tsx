@@ -611,20 +611,66 @@ export default function ConfigEditor({ device }: Props) {
 
                                 {/* Command Action Fields */}
                                 {selectedButton?.action?.type === 'command' && (
-                                    <div className="pt-2 border-t border-surface-700">
-                                        <label className="block text-sm font-medium text-surface-400 mb-1.5">
-                                            Command
-                                        </label>
-                                        <select
-                                            value={selectedButton.action.command || ''}
-                                            onChange={e => updateButton(selectedKey, {
-                                                action: { type: 'command', command: e.target.value }
-                                            })}
-                                            className="w-full px-3 py-2.5"
-                                        >
-                                            <option value="">Select a command...</option>
-                                            <option value="clear">Clear All Keys</option>
-                                        </select>
+                                    <div className="space-y-4 pt-2 border-t border-surface-700">
+                                        <div>
+                                            <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                                Command
+                                            </label>
+                                            <select
+                                                value={selectedButton.action.command || ''}
+                                                onChange={e => updateButton(selectedKey, {
+                                                    action: { type: 'command', command: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2.5"
+                                            >
+                                                <option value="">Select a command...</option>
+                                                <optgroup label="Display">
+                                                    <option value="clear">Clear All Keys</option>
+                                                </optgroup>
+                                                <optgroup label="Brightness">
+                                                    <option value="brightness_up">Brightness Up</option>
+                                                    <option value="brightness_down">Brightness Down</option>
+                                                    <option value="set_brightness">Set Brightness</option>
+                                                </optgroup>
+                                                <optgroup label="LCD">
+                                                    <option value="lcd_on">LCD On</option>
+                                                    <option value="lcd_off">LCD Off</option>
+                                                </optgroup>
+                                            </select>
+                                        </div>
+
+                                        {/* Value field for brightness commands */}
+                                        {(selectedButton.action.command === 'brightness_up' ||
+                                          selectedButton.action.command === 'brightness_down' ||
+                                          selectedButton.action.command === 'set_brightness') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                                    {selectedButton.action.command === 'set_brightness'
+                                                        ? 'Brightness Level (0-100)'
+                                                        : 'Step Amount (default: 10)'}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    placeholder={selectedButton.action.command === 'set_brightness' ? '50' : '10'}
+                                                    value={selectedButton.action.value ?? ''}
+                                                    onChange={e => updateButton(selectedKey, {
+                                                        action: {
+                                                            ...selectedButton.action,
+                                                            type: 'command',
+                                                            value: e.target.value ? parseInt(e.target.value) : undefined
+                                                        }
+                                                    })}
+                                                    className="w-full px-3 py-2.5"
+                                                />
+                                                <p className="mt-1.5 text-xs text-surface-600">
+                                                    {selectedButton.action.command === 'set_brightness'
+                                                        ? 'Set exact brightness percentage'
+                                                        : 'Amount to increase/decrease brightness by'}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
