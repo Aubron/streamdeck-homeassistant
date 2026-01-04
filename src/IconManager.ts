@@ -98,17 +98,17 @@ export class IconManager {
             jimpImage = new Jimp(size, size, bgColor);
         }
 
-        // Use cover mode: resize to fill the area while maintaining aspect ratio, then center crop
+        // Apply 8px padding around the icon
+        const padding = 8;
+        const iconSize = size - (padding * 2);
+
+        // Use cover mode: resize to fill the padded area while maintaining aspect ratio, then center crop
         // This prevents non-square images from being stretched/skewed
-        jimpImage.cover(size, size);
+        jimpImage.cover(iconSize, iconSize);
 
-        // If we want to composite over background color (for PNGs/SVGs with transparency)
-        if (bgColor) {
-            const bg = new Jimp(size, size, bgColor);
-            bg.composite(jimpImage, 0, 0);
-            return bg;
-        }
-
-        return jimpImage;
+        // Always composite over background color with padding
+        const bg = new Jimp(size, size, bgColor || '#000000');
+        bg.composite(jimpImage, padding, padding);
+        return bg;
     }
 }

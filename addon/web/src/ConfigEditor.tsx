@@ -421,13 +421,13 @@ export default function ConfigEditor({ device }: Props) {
                                     `}
                                     style={{ backgroundColor: bgColor }}
                                 >
-                                    {/* Icon/image rendered as background layer */}
+                                    {/* Icon/image rendered as background layer with 8px padding */}
                                     {hasIcon && (
-                                        <div className="absolute inset-0">
+                                        <div className="absolute inset-[8px]">
                                             <IconPreview
                                                 icon={btn?.icon}
                                                 iconColor={iconColor}
-                                                size={72}
+                                                size={56}
                                                 fillContainer
                                             />
                                         </div>
