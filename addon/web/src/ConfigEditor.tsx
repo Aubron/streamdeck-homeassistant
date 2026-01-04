@@ -436,7 +436,7 @@ export default function ConfigEditor({ device }: Props) {
                                     {hasText ? (
                                         <span
                                             style={{ color: textColor }}
-                                            className="relative z-10 drop-shadow-md text-[10px] leading-tight max-w-full px-0.5 text-center break-words line-clamp-3"
+                                            className="relative z-10 drop-shadow-md text-[12px] leading-tight max-w-full px-0.5 text-center break-words line-clamp-3"
                                         >
                                             {btn.text}
                                         </span>
