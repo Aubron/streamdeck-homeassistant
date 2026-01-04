@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import DeviceList from './DeviceList';
 import ConfigEditor from './ConfigEditor';
 
@@ -17,7 +17,7 @@ interface Device {
 export default function App() {
     const [devices, setDevices] = useState<Device[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-    const [ws, setWs] = useState<WebSocket | null>(null);
+    const [, setWs] = useState<WebSocket | null>(null);
 
     useEffect(() => {
         // Get base path for API calls (handles Home Assistant ingress)
@@ -61,21 +61,29 @@ export default function App() {
     }, []);
 
     return (
-        <div style={{ display: 'flex', height: '100vh' }}>
-            <aside style={{ width: 300, background: '#16162a', padding: 20, overflowY: 'auto' }}>
-                <h1 style={{ fontSize: 20, marginBottom: 20 }}>Stream Deck Manager</h1>
+        <div className="flex h-screen">
+            <aside className="w-72 bg-surface-900 border-r border-surface-700 p-5 overflow-y-auto">
+                <h1 className="text-xl font-semibold mb-6 text-surface-100">
+                    Stream Deck Manager
+                </h1>
                 <DeviceList
                     devices={devices}
                     selectedId={selectedDevice?.id}
                     onSelect={setSelectedDevice}
                 />
             </aside>
-            <main style={{ flex: 1, padding: 20, overflowY: 'auto' }}>
+            <main className="flex-1 p-6 overflow-y-auto bg-surface-950">
                 {selectedDevice ? (
                     <ConfigEditor device={selectedDevice} />
                 ) : (
-                    <div style={{ textAlign: 'center', marginTop: 100, color: '#666' }}>
-                        <p>Select a device to configure</p>
+                    <div className="flex items-center justify-center h-full text-surface-500">
+                        <div className="text-center">
+                            <svg className="w-16 h-16 mx-auto mb-4 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                            </svg>
+                            <p className="text-lg">Select a device to configure</p>
+                            <p className="text-sm text-surface-600 mt-2">Choose a Stream Deck from the sidebar</p>
+                        </div>
                     </div>
                 )}
             </main>

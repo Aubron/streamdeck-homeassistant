@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface Device {
     id: string;
     model: string;
@@ -21,9 +19,9 @@ interface Props {
 export default function DeviceList({ devices, selectedId, onSelect }: Props) {
     if (devices.length === 0) {
         return (
-            <div style={{ color: '#666', fontSize: 14 }}>
+            <div className="text-surface-500 text-sm">
                 <p>No devices discovered yet.</p>
-                <p style={{ marginTop: 10 }}>
+                <p className="mt-3 text-surface-600">
                     Make sure your Stream Deck runner is connected to the same MQTT broker.
                 </p>
             </div>
@@ -31,35 +29,32 @@ export default function DeviceList({ devices, selectedId, onSelect }: Props) {
     }
 
     return (
-        <ul style={{ listStyle: 'none' }}>
+        <ul className="space-y-2">
             {devices.map(device => (
                 <li
                     key={device.id}
                     onClick={() => onSelect(device)}
-                    style={{
-                        padding: '12px 16px',
-                        marginBottom: 8,
-                        background: selectedId === device.id ? '#2a2a4e' : '#1e1e38',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        border: selectedId === device.id ? '2px solid #4a4a8e' : '2px solid transparent'
-                    }}
+                    className={`
+                        p-3 rounded-lg cursor-pointer transition-all duration-150
+                        ${selectedId === device.id
+                            ? 'bg-card-selected ring-2 ring-primary-500'
+                            : 'bg-card hover:bg-card-hover'
+                        }
+                    `}
                 >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong>{device.model}</strong>
+                    <div className="flex justify-between items-center">
+                        <span className="font-medium text-surface-100">{device.model}</span>
                         <span
-                            style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: '50%',
-                                background: device.status === 'online' ? '#4caf50' : '#f44336'
-                            }}
+                            className={`
+                                w-2.5 h-2.5 rounded-full
+                                ${device.status === 'online' ? 'bg-success-500' : 'bg-error-500'}
+                            `}
                         />
                     </div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                        {device.columns}x{device.rows} ({device.keyCount} keys) - {device.iconSize}px
+                    <div className="text-xs text-surface-400 mt-1">
+                        {device.columns}x{device.rows} ({device.keyCount} keys) • {device.iconSize}px
                     </div>
-                    <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                    <div className="text-xs text-surface-600 mt-1 font-mono">
                         {device.id.substring(0, 16)}...
                     </div>
                 </li>
