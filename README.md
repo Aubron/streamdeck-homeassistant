@@ -87,14 +87,63 @@ export default config;
 
 ## Environment Variables
 
+### Required for Operation
+
+| Variable | Description | Default | Required |
+| :--- | :--- | :--- | :---: |
+| `MQTT_URL` | Full MQTT broker URL (e.g., `mqtt://192.168.1.100:1883`) | `mqtt://homeassistant.local` | **Yes** |
+| `HOMEASSISTANT_TOKEN` | Long-Lived Access Token for Home Assistant API | - | **Yes** (for HA actions) |
+
+### Optional Configuration
+
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `MQTT_URL` | Broker URL | `mqtt://homeassistant.local` |
-| `MQTT_USER` | Broker Username | - |
-| `MQTT_PASS` | Broker Password | - |
-| `BALENA_DEVICE_UUID` | Device ID for config lookup | `streamdeck-unknown` |
-| `HOMEASSISTANT_URL` | HA Instance URL | `http://homeassistant.local:8123` |
-| `HOMEASSISTANT_TOKEN` | Long-Lived Access Token | - |
+| `MQTT_USER` | MQTT broker username (if authentication required) | - |
+| `MQTT_PASS` | MQTT broker password (if authentication required) | - |
+| `HOMEASSISTANT_URL` | Home Assistant instance URL | `http://homeassistant.local:8123` |
+| `BALENA_DEVICE_UUID` | Device ID for config lookup (falls back to hostname) | `streamdeck-unknown` |
+
+### Quick Start
+
+1. **Set up MQTT connection** (required):
+   ```bash
+   export MQTT_URL="mqtt://your-mqtt-broker-ip:1883"
+   # If your broker requires authentication:
+   export MQTT_USER="your-username"
+   export MQTT_PASS="your-password"
+   ```
+
+2. **Set up Home Assistant connection** (required for HA actions):
+   ```bash
+   export HOMEASSISTANT_URL="http://your-home-assistant-ip:8123"
+   export HOMEASSISTANT_TOKEN="your-long-lived-access-token"
+   ```
+
+   To create a Long-Lived Access Token in Home Assistant:
+   - Go to your Profile (click your username in the sidebar)
+   - Scroll to "Long-Lived Access Tokens"
+   - Click "Create Token" and copy the value
+
+### Troubleshooting
+
+**MQTT Connection Refused Error:**
+```
+MQTT error: AggregateError [ECONNREFUSED]
+```
+This means the MQTT broker is not reachable at the configured URL. Verify:
+- Your MQTT broker (e.g., Mosquitto) is running
+- The `MQTT_URL` points to the correct IP/hostname and port
+- The broker is accessible from this machine (check firewall rules)
+- If using Home Assistant's Mosquitto add-on, the default port is `1883`
+
+**Example `.env` file:**
+```bash
+MQTT_URL=mqtt://192.168.1.100:1883
+MQTT_USER=mqtt_user
+MQTT_PASS=mqtt_password
+HOMEASSISTANT_URL=http://192.168.1.100:8123
+HOMEASSISTANT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+```
 
 ## Development
 
