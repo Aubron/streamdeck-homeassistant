@@ -112,6 +112,10 @@ export class NavigationManager {
             await this.navigateTo(action.page);
             return null; // Handled
         } else if (action.type === 'ha') {
+            if (!action.service) {
+                console.error('HA Action has no service configured');
+                return null;
+            }
             console.log(`Executing HA Action: ${action.service}`);
             await this.haClient.callService(action.service, action.entityId, action.data);
             return null; // Handled

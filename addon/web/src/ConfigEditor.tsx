@@ -621,6 +621,105 @@ export default function ConfigEditor({ device }: Props) {
                                             />
                                         </div>
 
+                                        {/* Service Data Payload */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                                Service Data (Optional)
+                                            </label>
+                                            <p className="text-xs text-surface-500 mb-2">
+                                                Additional parameters to send with the service call (e.g., brightness, color_temp, transition)
+                                            </p>
+
+                                            {/* Existing data fields */}
+                                            {Object.entries(selectedButton.action.data || {}).map(([key, value]) => (
+                                                <div key={key} className="flex items-center gap-2 mb-2">
+                                                    <input
+                                                        type="text"
+                                                        value={key}
+                                                        onChange={e => {
+                                                            const newData = { ...selectedButton.action.data };
+                                                            const oldValue = newData[key];
+                                                            delete newData[key];
+                                                            if (e.target.value) {
+                                                                newData[e.target.value] = oldValue;
+                                                            }
+                                                            updateButton(selectedKey, {
+                                                                action: { ...selectedButton.action, type: 'ha', data: newData }
+                                                            });
+                                                        }}
+                                                        placeholder="Key"
+                                                        className="flex-1 px-2 py-1.5 text-sm"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                                        onChange={e => {
+                                                            const newData = { ...selectedButton.action.data };
+                                                            // Try to parse as JSON/number, otherwise keep as string
+                                                            let parsedValue: any = e.target.value;
+                                                            if (e.target.value === '') {
+                                                                parsedValue = '';
+                                                            } else if (!isNaN(Number(e.target.value)) && e.target.value.trim() !== '') {
+                                                                parsedValue = Number(e.target.value);
+                                                            } else {
+                                                                try {
+                                                                    parsedValue = JSON.parse(e.target.value);
+                                                                } catch {
+                                                                    parsedValue = e.target.value;
+                                                                }
+                                                            }
+                                                            newData[key] = parsedValue;
+                                                            updateButton(selectedKey, {
+                                                                action: { ...selectedButton.action, type: 'ha', data: newData }
+                                                            });
+                                                        }}
+                                                        placeholder="Value"
+                                                        className="flex-1 px-2 py-1.5 text-sm"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            const newData = { ...selectedButton.action.data };
+                                                            delete newData[key];
+                                                            updateButton(selectedKey, {
+                                                                action: {
+                                                                    ...selectedButton.action,
+                                                                    type: 'ha',
+                                                                    data: Object.keys(newData).length > 0 ? newData : undefined
+                                                                }
+                                                            });
+                                                        }}
+                                                        className="px-2 py-1.5 bg-error-800 hover:bg-error-700 text-error-400 rounded text-sm"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {/* Add new field button */}
+                                            <button
+                                                onClick={() => {
+                                                    const existingData = selectedButton.action.data || {};
+                                                    // Generate a unique key name
+                                                    let newKey = 'param';
+                                                    let counter = 1;
+                                                    while (existingData[newKey]) {
+                                                        newKey = `param${counter}`;
+                                                        counter++;
+                                                    }
+                                                    updateButton(selectedKey, {
+                                                        action: {
+                                                            ...selectedButton.action,
+                                                            type: 'ha',
+                                                            data: { ...existingData, [newKey]: '' }
+                                                        }
+                                                    });
+                                                }}
+                                                className="w-full px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-surface-300 rounded text-sm"
+                                            >
+                                                + Add Data Field
+                                            </button>
+                                        </div>
+
                                         {/* Entity State Styling */}
                                         <div className="pt-2 border-t border-surface-700">
                                             <div className="flex items-center gap-2 mb-2">

@@ -22,6 +22,11 @@ export class HomeAssistantClient {
             return;
         }
 
+        if (!service) {
+            console.error('No service specified for Home Assistant call');
+            return;
+        }
+
         const [domain, serviceName] = service.split('.');
         if (!domain || !serviceName) {
             console.error(`Invalid service format: ${service}. Expected domain.service`);
