@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Autocomplete from './Autocomplete';
 import IconPreview from './IconPreview';
+import IconPicker from './IconPicker';
 
 interface Device {
     id: string;
@@ -318,7 +319,7 @@ export default function ConfigEditor({ device }: Props) {
                             const bgColor = btn?.color || '#333333';
                             const textColor = btn?.textColor || '#ffffff';
                             const iconColor = btn?.iconColor || '#ffffff';
-                            const hasIcon = btn?.icon && !btn.icon.startsWith('#');
+                            const hasIcon = !!btn?.icon;
                             const hasText = btn?.text;
                             return (
                                 <button
@@ -384,21 +385,16 @@ export default function ConfigEditor({ device }: Props) {
                                     />
                                 </div>
 
-                                {/* Icon Input */}
+                                {/* Icon Picker */}
                                 <div>
                                     <label className="block text-sm font-medium text-surface-400 mb-1.5">
                                         Icon
                                     </label>
-                                    <input
-                                        type="text"
+                                    <IconPicker
                                         value={selectedButton?.icon || ''}
-                                        onChange={e => updateButton(selectedKey, { icon: e.target.value })}
-                                        placeholder="ph:house, http://..., or #color"
-                                        className="w-full px-3 py-2.5"
+                                        iconColor={selectedButton?.iconColor || '#ffffff'}
+                                        onChange={value => updateButton(selectedKey, { icon: value })}
                                     />
-                                    <p className="mt-1.5 text-xs text-surface-600">
-                                        Phosphor icon name, URL, or hex color
-                                    </p>
                                 </div>
 
                                 {/* Color Pickers */}

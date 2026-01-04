@@ -47,22 +47,8 @@ export default function IconPreview({ icon, iconColor = '#ffffff', size = 40 }: 
             return <span className="text-[8px] opacity-50">{iconName}</span>;
         }
 
-        // Hex color: #RRGGBB - show a colored square
-        if (icon.startsWith('#')) {
-            return (
-                <div
-                    style={{
-                        backgroundColor: icon,
-                        width: size * 0.7,
-                        height: size * 0.7,
-                        borderRadius: 4
-                    }}
-                />
-            );
-        }
-
-        // HTTP/HTTPS URL: show image
-        if (icon.startsWith('http://') || icon.startsWith('https://')) {
+        // HTTP/HTTPS URL or data: URL: show image
+        if (icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('data:')) {
             return (
                 <img
                     src={icon}
