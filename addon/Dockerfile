@@ -1,30 +1,38 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-# Install Node.js
+# Install Node.js 20
 RUN apk add --no-cache nodejs npm
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files for main server
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (need devDeps for build)
+RUN npm ci
 
-# Copy application source
+# Copy source files
 COPY src/ ./src/
-COPY web/ ./web/
+COPY tsconfig.json ./
 
-# Build the application
+# Build the server
 RUN npm run build
 
-# Expose ingress port
-EXPOSE 8099
+# Copy and build web client
+COPY web/ ./web/
+WORKDIR /app/web
+RUN npm ci && npm run build
+
+# Back to app root
+WORKDIR /app
 
 # Copy run script
 COPY run.sh /
 RUN chmod a+x /run.sh
+
+# Expose ingress port
+EXPOSE 8099
 
 CMD [ "/run.sh" ]
