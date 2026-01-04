@@ -12,6 +12,8 @@ export class NavigationManager {
     private myStreamDeck: any;
     private mqttClient: MqttClient;
     private configManager: ConfigManager;
+    private currentBrightness: number = 50; // Track current brightness for increment/decrement commands
+    private savedBrightness: number = 50; // Saved brightness for LCD on/off toggle
 
     constructor(myStreamDeck: any, client: MqttClient, configManager: ConfigManager, renderer: PageRenderer, config: DeviceConfig) {
         this.myStreamDeck = myStreamDeck;
@@ -35,6 +37,8 @@ export class NavigationManager {
 
         // Apply brightness if specified
         if (newConfig.brightness !== undefined) {
+            this.currentBrightness = newConfig.brightness;
+            this.savedBrightness = newConfig.brightness;
             await this.myStreamDeck.setBrightness(newConfig.brightness);
         }
 
@@ -76,18 +80,62 @@ export class NavigationManager {
             await this.haClient.callService(action.service, action.entityId, action.data);
             return null; // Handled
         } else if (action.type === 'command') {
-            // Let index.ts handle command for now or handle here?
-            // specific 'clear' command logic was in index.ts
-            // We can duplicate or expose clear functionality
-            if (action.command === 'clear') {
-                // Clear all keys
-                try {
-                    for (let i = 0; i < this.myStreamDeck.NUM_KEYS; i++) {
-                        await this.myStreamDeck.clearKey(i);
-                    }
-                } catch (e) {
-                    console.error('Error clearing keys:', e);
+            try {
+                switch (action.command) {
+                    case 'clear':
+                        // Clear all keys
+                        for (let i = 0; i < this.myStreamDeck.NUM_KEYS; i++) {
+                            await this.myStreamDeck.clearKey(i);
+                        }
+                        break;
+
+                    case 'brightness_up':
+                        // Increase brightness by 10 (or custom step via value)
+                        const upStep = action.value ?? 10;
+                        this.currentBrightness = Math.min(100, this.currentBrightness + upStep);
+                        this.savedBrightness = this.currentBrightness;
+                        await this.myStreamDeck.setBrightness(this.currentBrightness);
+                        console.log(`Brightness increased to ${this.currentBrightness}%`);
+                        break;
+
+                    case 'brightness_down':
+                        // Decrease brightness by 10 (or custom step via value)
+                        const downStep = action.value ?? 10;
+                        this.currentBrightness = Math.max(0, this.currentBrightness - downStep);
+                        this.savedBrightness = this.currentBrightness;
+                        await this.myStreamDeck.setBrightness(this.currentBrightness);
+                        console.log(`Brightness decreased to ${this.currentBrightness}%`);
+                        break;
+
+                    case 'set_brightness':
+                        // Set brightness to specific value
+                        if (action.value !== undefined) {
+                            this.currentBrightness = Math.max(0, Math.min(100, action.value));
+                            this.savedBrightness = this.currentBrightness;
+                            await this.myStreamDeck.setBrightness(this.currentBrightness);
+                            console.log(`Brightness set to ${this.currentBrightness}%`);
+                        }
+                        break;
+
+                    case 'lcd_off':
+                        // Turn off LCD by setting brightness to 0
+                        this.currentBrightness = 0;
+                        await this.myStreamDeck.setBrightness(0);
+                        console.log('LCD turned off');
+                        break;
+
+                    case 'lcd_on':
+                        // Turn on LCD by restoring saved brightness (or default to 100)
+                        this.currentBrightness = this.savedBrightness > 0 ? this.savedBrightness : 100;
+                        await this.myStreamDeck.setBrightness(this.currentBrightness);
+                        console.log(`LCD turned on (brightness: ${this.currentBrightness}%)`);
+                        break;
+
+                    default:
+                        console.log(`Unknown command: ${action.command}`);
                 }
+            } catch (e) {
+                console.error(`Error executing command '${action.command}':`, e);
             }
             return action; // return for logging or other processing
         }
