@@ -31,6 +31,9 @@ interface Props {
     device: Device;
 }
 
+// Get base path for API calls (handles Home Assistant ingress)
+const getBasePath = () => window.location.pathname.replace(/\/$/, '');
+
 export default function ConfigEditor({ device }: Props) {
     const [config, setConfig] = useState<DeviceConfig>({ pages: { default: [] } });
     const [currentPage, setCurrentPage] = useState('default');
@@ -39,7 +42,7 @@ export default function ConfigEditor({ device }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
-        fetch(`/api/devices/${device.id}/config`)
+        fetch(`${getBasePath()}/api/devices/${device.id}/config`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data) setConfig(data);
@@ -78,7 +81,7 @@ export default function ConfigEditor({ device }: Props) {
         setMessage(null);
 
         try {
-            const res = await fetch(`/api/devices/${device.id}/config`, {
+            const res = await fetch(`${getBasePath()}/api/devices/${device.id}/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
