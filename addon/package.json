@@ -4,8 +4,7 @@
   "description": "Home Assistant Add-on for managing Stream Deck devices",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc && npm run build:web",
-    "build:web": "cd web && npm run build",
+    "build": "tsc",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js"
   },
