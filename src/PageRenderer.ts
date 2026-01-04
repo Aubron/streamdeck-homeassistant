@@ -51,9 +51,15 @@ export class PageRenderer {
     }
 
     private async getKeyBuffer(buttonConfig: any): Promise<Buffer | null> {
+        const bgColor = buttonConfig.color || '#333333';
+        const iconColor = buttonConfig.iconColor || '#ffffff';
+        const textColor = buttonConfig.textColor || '#ffffff';
+
         // Render Icon
         if (buttonConfig.text) {
-            const img = await IconManager.getIconJimp(buttonConfig.icon, this.device.ICON_SIZE, buttonConfig.color);
+            const img = await IconManager.getIconJimp(buttonConfig.icon, this.device.ICON_SIZE, bgColor, iconColor);
+
+            // Select font based on text color (Jimp has limited font options, so we use white and tint)
             const font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
 
             const textWidth = Jimp.measureText(font, buttonConfig.text);
@@ -61,27 +67,41 @@ export class PageRenderer {
             const x = (this.device.ICON_SIZE - textWidth) / 2;
             const y = (this.device.ICON_SIZE - textHeight) / 2;
 
-            img.print(font, x, y, buttonConfig.text);
+            // Create a text layer to colorize
+            const textLayer = new Jimp(this.device.ICON_SIZE, this.device.ICON_SIZE, 0x00000000);
+            textLayer.print(font, x, y, buttonConfig.text);
+
+            // Apply text color by masking
+            if (textColor !== '#ffffff') {
+                const r = parseInt(textColor.substr(1, 2), 16);
+                const g = parseInt(textColor.substr(3, 2), 16);
+                const b = parseInt(textColor.substr(5, 2), 16);
+                textLayer.scan(0, 0, textLayer.bitmap.width, textLayer.bitmap.height, function(px, py, idx) {
+                    if (this.bitmap.data[idx + 3] > 0) { // If pixel is not transparent
+                        this.bitmap.data[idx] = r;
+                        this.bitmap.data[idx + 1] = g;
+                        this.bitmap.data[idx + 2] = b;
+                    }
+                });
+            }
+
+            img.composite(textLayer, 0, 0);
             return IconManager.toRawBgr(img);
         } else if (buttonConfig.icon) {
-            return await IconManager.getIconBuffer(buttonConfig.icon, this.device.ICON_SIZE, buttonConfig.color);
-        } else if (buttonConfig.color) {
-            if (buttonConfig.color.startsWith('#')) {
-                // Return a single pixel buffer? Or full size? 
-                // fillKeyColor usually takes r,g,b. fillKeyBuffer takes buffer.
-                // Let's create a full size buffer of that color
-                const r = parseInt(buttonConfig.color.substr(1, 2), 16);
-                const g = parseInt(buttonConfig.color.substr(3, 2), 16);
-                const b = parseInt(buttonConfig.color.substr(5, 2), 16);
-                const size = this.device.ICON_SIZE;
-                const buffer = Buffer.alloc(size * size * 3);
-                for (let i = 0; i < size * size; i++) {
-                    buffer[i * 3] = b;
-                    buffer[i * 3 + 1] = g;
-                    buffer[i * 3 + 2] = r;
-                }
-                return buffer;
+            return await IconManager.getIconBuffer(buttonConfig.icon, this.device.ICON_SIZE, bgColor, iconColor);
+        } else if (bgColor && bgColor.startsWith('#')) {
+            // Just background color, no icon or text
+            const r = parseInt(bgColor.substr(1, 2), 16);
+            const g = parseInt(bgColor.substr(3, 2), 16);
+            const b = parseInt(bgColor.substr(5, 2), 16);
+            const size = this.device.ICON_SIZE;
+            const buffer = Buffer.alloc(size * size * 3);
+            for (let i = 0; i < size * size; i++) {
+                buffer[i * 3] = b;
+                buffer[i * 3 + 1] = g;
+                buffer[i * 3 + 2] = r;
             }
+            return buffer;
         }
         return null;
     }

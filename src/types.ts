@@ -29,7 +29,9 @@ export interface ButtonConfig {
     key: number;
     text?: string;
     icon?: string; // 'ph:name', 'local:path', 'http:url', or '#RRGGBB'
-    color?: string; // Background color
+    color?: string; // Background color (default: #333333)
+    iconColor?: string; // Icon tint color (default: #ffffff)
+    textColor?: string; // Text color (default: #ffffff)
     action?: Action;
 }
 
