@@ -178,7 +178,7 @@ wss.on('connection', (ws) => {
 });
 
 // Forward MQTT events to WebSocket clients
-mqttHandler.on('deviceDiscovered', (device) => {
+mqttHandler.on('deviceDiscovered', async (device) => {
     db.updateDevice(device);
     wss.clients.forEach((client) => {
         if (client.readyState === 1) {
@@ -188,6 +188,17 @@ mqttHandler.on('deviceDiscovered', (device) => {
             }));
         }
     });
+
+    // Send saved configuration to device if one exists
+    const config = db.getDeviceConfig(device.id);
+    if (config) {
+        try {
+            await mqttHandler.deployConfig(device.id, config);
+            console.log(`Sent saved config to discovered device ${device.id}`);
+        } catch (error) {
+            console.error(`Failed to send config to device ${device.id}:`, error);
+        }
+    }
 });
 
 mqttHandler.on('deviceStatus', (deviceId, status) => {
