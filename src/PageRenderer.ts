@@ -26,6 +26,7 @@ export class PageRenderer {
             color: buttonConfig.color || '#333333',
             iconColor: buttonConfig.iconColor || '#ffffff',
             textColor: buttonConfig.textColor || '#ffffff',
+            titleAlign: buttonConfig.titleAlign || 'middle',
             // Include device icon size since it affects the rendered output
             size: this.device.ICON_SIZE,
         };
@@ -79,14 +80,44 @@ export class PageRenderer {
             // Select font based on text color (Jimp has limited font options, so we use white and tint)
             const font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
 
-            const textWidth = Jimp.measureText(font, buttonConfig.text);
-            const textHeight = Jimp.measureTextHeight(font, buttonConfig.text, this.device.ICON_SIZE);
-            const x = (this.device.ICON_SIZE - textWidth) / 2;
-            const y = (this.device.ICON_SIZE - textHeight) / 2;
+            const padding = 4; // Padding from edges
+            const maxWidth = this.device.ICON_SIZE - (padding * 2);
+
+            // Measure text height with wrapping
+            const textHeight = Jimp.measureTextHeight(font, buttonConfig.text, maxWidth);
+
+            // Calculate Y position based on alignment
+            const titleAlign = buttonConfig.titleAlign || 'middle';
+            let y: number;
+            switch (titleAlign) {
+                case 'top':
+                    y = padding;
+                    break;
+                case 'bottom':
+                    y = this.device.ICON_SIZE - textHeight - padding;
+                    break;
+                case 'middle':
+                default:
+                    y = (this.device.ICON_SIZE - textHeight) / 2;
+                    break;
+            }
 
             // Create a text layer to colorize
             const textLayer = new Jimp(this.device.ICON_SIZE, this.device.ICON_SIZE, 0x00000000);
-            textLayer.print(font, x, y, buttonConfig.text);
+
+            // Print with wrapping and horizontal centering
+            textLayer.print(
+                font,
+                padding,
+                y,
+                {
+                    text: buttonConfig.text,
+                    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+                    alignmentY: Jimp.VERTICAL_ALIGN_TOP
+                },
+                maxWidth,
+                this.device.ICON_SIZE
+            );
 
             // Apply text color by masking
             if (textColor !== '#ffffff') {

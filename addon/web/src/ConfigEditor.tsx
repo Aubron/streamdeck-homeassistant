@@ -12,6 +12,8 @@ interface Device {
     iconSize: number;
 }
 
+type TitleAlign = 'top' | 'middle' | 'bottom';
+
 interface ButtonConfig {
     key: number;
     text?: string;
@@ -19,6 +21,7 @@ interface ButtonConfig {
     color?: string;
     iconColor?: string;
     textColor?: string;
+    titleAlign?: TitleAlign;
     action?: {
         type: 'ha' | 'navigate' | 'mqtt' | 'command';
         [key: string]: any;
@@ -319,15 +322,24 @@ export default function ConfigEditor({ device }: Props) {
                             const bgColor = btn?.color || '#333333';
                             const textColor = btn?.textColor || '#ffffff';
                             const iconColor = btn?.iconColor || '#ffffff';
+                            const titleAlign = btn?.titleAlign || 'middle';
                             const hasIcon = !!btn?.icon;
                             const hasText = btn?.text;
+
+                            // Determine justify-content based on titleAlign
+                            const justifyClass = titleAlign === 'top'
+                                ? 'justify-start'
+                                : titleAlign === 'bottom'
+                                    ? 'justify-end'
+                                    : 'justify-center';
+
                             return (
                                 <button
                                     key={i}
                                     onClick={() => setSelectedKey(i)}
                                     className={`
-                                        w-[72px] h-[72px] rounded-lg flex flex-col items-center justify-center
-                                        text-xs text-center transition-all duration-150 relative overflow-hidden
+                                        w-[72px] h-[72px] rounded-lg flex flex-col items-center ${justifyClass}
+                                        text-xs text-center transition-all duration-150 relative overflow-hidden p-1
                                         ${selectedKey === i
                                             ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-950'
                                             : 'hover:ring-2 hover:ring-surface-500 hover:ring-offset-1 hover:ring-offset-surface-950'
@@ -336,7 +348,7 @@ export default function ConfigEditor({ device }: Props) {
                                     style={{ backgroundColor: bgColor }}
                                 >
                                     {hasIcon && (
-                                        <div className={hasText ? 'mb-0.5' : ''}>
+                                        <div className={hasText ? 'mb-0.5 flex-shrink-0' : 'flex-shrink-0'}>
                                             <IconPreview
                                                 icon={btn?.icon}
                                                 iconColor={iconColor}
@@ -347,7 +359,7 @@ export default function ConfigEditor({ device }: Props) {
                                     {hasText ? (
                                         <span
                                             style={{ color: textColor }}
-                                            className="drop-shadow-md text-[10px] leading-tight max-w-full px-1 truncate"
+                                            className="drop-shadow-md text-[10px] leading-tight max-w-full px-0.5 text-center break-words line-clamp-3"
                                         >
                                             {btn.text}
                                         </span>
@@ -383,6 +395,31 @@ export default function ConfigEditor({ device }: Props) {
                                         placeholder="Button label..."
                                         className="w-full px-3 py-2.5"
                                     />
+                                </div>
+
+                                {/* Title Alignment */}
+                                <div>
+                                    <label className="block text-sm font-medium text-surface-400 mb-1.5">
+                                        Title Alignment
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {(['top', 'middle', 'bottom'] as const).map(align => (
+                                            <button
+                                                key={align}
+                                                onClick={() => updateButton(selectedKey, { titleAlign: align })}
+                                                className={`
+                                                    flex-1 px-3 py-2 rounded-lg text-sm font-medium capitalize
+                                                    transition-colors duration-150
+                                                    ${(selectedButton?.titleAlign || 'middle') === align
+                                                        ? 'bg-primary-500 text-white'
+                                                        : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
+                                                    }
+                                                `}
+                                            >
+                                                {align}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {/* Icon Picker */}

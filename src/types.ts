@@ -26,6 +26,8 @@ export interface HomeAssistantAction {
 
 export type Action = MqttAction | NavigateAction | CommandAction | HomeAssistantAction;
 
+export type TitleAlign = 'top' | 'middle' | 'bottom';
+
 export interface ButtonConfig {
     key: number;
     text?: string;
@@ -33,6 +35,7 @@ export interface ButtonConfig {
     color?: string; // Background color (default: #333333)
     iconColor?: string; // Icon tint color (default: #ffffff)
     textColor?: string; // Text color (default: #ffffff)
+    titleAlign?: TitleAlign; // Vertical alignment (default: 'middle')
     action?: Action;
 }
 
