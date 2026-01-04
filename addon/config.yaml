@@ -1,0 +1,28 @@
+name: "Stream Deck Manager"
+description: "Configure and manage Stream Deck devices via MQTT"
+version: "1.0.0"
+slug: "streamdeck_manager"
+url: "https://github.com/Aubron/streamdeck-homeassistant"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+init: false
+homeassistant_api: true
+hassio_api: true
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:view-grid"
+panel_title: "Stream Deck"
+map:
+  - share:rw
+options:
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+schema:
+  mqtt_host: str?
+  mqtt_port: int
+  mqtt_user: str?
+  mqtt_password: str?
