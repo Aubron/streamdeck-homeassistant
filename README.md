@@ -1,25 +1,77 @@
 # Stream Deck Home Assistant Controller
 
-A robust, "Configuration-as-Code" controller for Elgato Stream Deck devices running on Raspberry Pi (via Balena) or any Linux/macOS machine. It integrates with Home Assistant via MQTT.
+A robust Stream Deck controller for Elgato Stream Deck devices that integrates with Home Assistant. Run it on a Raspberry Pi (via Balena) or any Linux/macOS machine.
 
 ## Features
 
--   **Instant Startup**: Buttons render immediately on boot using local configuration (no waiting for Home Assistant automations).
--   **Hybrid Control**:
-    -   **Local Actions**: Folder navigation, page switching, brightness control.
-    -   **MQTT Actions**: Triggers Home Assistant entities directly.
-    -   **Legacy Support**: Still publishes `key/#/state` events for HA-side automations to consume.
--   **Phosphor Icons**: Built-in support for thousands of icons via `ph:icon-name`.
--   **TypeScript**: Fully typed codebase for reliability.
+- **Instant Startup**: Buttons render immediately on boot using cached configuration
+- **Web-Based Configuration**: Visual button editor with live preview via Home Assistant add-on
+- **Dynamic Entity State Styling**: Buttons automatically change appearance based on Home Assistant entity states (lights show actual color and brightness)
+- **Rich Icon Support**: 3,500+ Phosphor icons, remote images, local files, or solid colors
+- **Multi-Page Navigation**: Organize buttons across multiple pages
+- **Full Home Assistant Integration**: Call any HA service with custom data payloads
+- **MQTT Control**: Direct MQTT publishing and legacy automation support
+- **Multi-Device Support**: Manage multiple Stream Decks from a single interface
+
+## Architecture
+
+The system has two components:
+
+1. **Stream Deck Controller** (runs on device with Stream Deck)
+   - Handles real-time button rendering and press detection
+   - Connects to Home Assistant via REST API and WebSocket
+   - Communicates via MQTT for configuration and status
+
+2. **Home Assistant Add-on** (runs in Home Assistant)
+   - Web UI for visual button configuration
+   - Device discovery and management
+   - Configuration deployment via MQTT
+
+## Installation
+
+### Option 1: Home Assistant Add-on (Recommended)
+
+1. Add this repository to Home Assistant Add-on Store
+2. Install the "Stream Deck Controller" add-on
+3. Configure MQTT settings in add-on options
+4. Access the web UI through the Home Assistant sidebar
+
+### Option 2: Balena Deployment
+
+```bash
+balena push <app-name>
+```
+
+### Option 3: Standalone
+
+```bash
+npm install
+npm start
+```
 
 ## Configuration
 
-Configuration is handled via **TypeScript** files in the `config/` directory.
+### Environment Variables
 
-1.  **Default Config**: `config/default.ts` is loaded if no device-specific config is found.
-2.  **Device Config**: Create `config/[DEVICE_UUID].ts` to target a specific device (uses `BALENA_DEVICE_UUID` or hostname).
+#### Required
 
-### Example Configuration
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `MQTT_URL` | MQTT broker URL (e.g., `mqtt://192.168.1.100:1883`) | `mqtt://homeassistant.local` |
+| `HOMEASSISTANT_TOKEN` | Long-Lived Access Token for Home Assistant | - |
+
+#### Optional
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `MQTT_USER` | MQTT broker username | - |
+| `MQTT_PASS` | MQTT broker password | - |
+| `HOMEASSISTANT_URL` | Home Assistant instance URL | `http://homeassistant.local:8123` |
+| `BALENA_DEVICE_UUID` | Device ID for config lookup | hostname |
+
+### Device Configuration
+
+Configuration can be managed via the web UI or TypeScript files in `config/`.
 
 ```typescript
 import { DeviceConfig } from '../src/types';
@@ -27,16 +79,25 @@ import { DeviceConfig } from '../src/types';
 const config: DeviceConfig = {
     brightness: 80,
     pages: {
-        // The 'default' page is loaded on startup
         default: [
             {
                 key: 0,
                 text: 'Living Room',
-                icon: 'ph:lightbulb', // Uses Phosphor Icons (white by default)
+                icon: 'ph:lightbulb',
+                color: '#333333',
+                iconColor: '#ffffff',
+                textColor: '#ffffff',
+                titleAlign: 'middle',        // 'top', 'middle', or 'bottom'
+                useEntityState: true,        // Enable dynamic state styling
+                stateEntity: 'light.living', // Entity to track (uses action entityId if not set)
                 action: {
                     type: 'ha',
                     service: 'light.toggle',
-                    entityId: 'light.bar_spotlight'
+                    entityId: 'light.living_room',
+                    data: {                  // Optional service data
+                        brightness: 255,
+                        transition: 2
+                    }
                 }
             },
             {
@@ -45,16 +106,7 @@ const config: DeviceConfig = {
                 icon: 'ph:gear',
                 action: {
                     type: 'navigate',
-                    page: 'system_page' // Navigates to pages.system_page
-                }
-            },
-            {
-                key: 2,
-                color: '#FF0000', // Simple color fill
-                action: {
-                    type: 'mqtt',
-                    topic: 'home/kitchen/light/set',
-                    payload: 'ON'
+                    page: 'system_page'
                 }
             }
         ],
@@ -67,9 +119,9 @@ const config: DeviceConfig = {
             },
             {
                 key: 4,
-                text: 'Reboot',
-                icon: 'ph:power',
-                action: { type: 'command', command: 'reboot' } // Local command support
+                text: 'Bright+',
+                icon: 'ph:sun',
+                action: { type: 'command', command: 'brightness_up' }
             }
         ]
     }
@@ -78,72 +130,105 @@ const config: DeviceConfig = {
 export default config;
 ```
 
+### Button Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `key` | number | Button position (0-14 for Stream Deck XL) |
+| `text` | string | Button label (supports word wrapping) |
+| `icon` | string | Icon source (see Icon Support below) |
+| `color` | string | Background color (hex) |
+| `iconColor` | string | Icon tint color (hex, Phosphor icons only) |
+| `textColor` | string | Text color (hex) |
+| `titleAlign` | string | Text vertical alignment: `top`, `middle`, `bottom` |
+| `useEntityState` | boolean | Enable dynamic styling from entity state |
+| `stateEntity` | string | Entity ID for state tracking |
+| `action` | object | Button press action |
+
 ### Icon Support
 
--   **Phosphor Icons**: `ph:acorn`, `ph:lightbulb-fill` (see [Phosphor Icons](https://phosphoricons.com/))
--   **Local Files**: `local:my-icon.png` (relative to `assets/` directory)
--   **Remote URLs**: `https://example.com/image.png` (Direct HTTP/HTTPS links)
--   **Colors**: `#FF0000` (Hex color codes)
-
-## Environment Variables
-
-### Required for Operation
-
-| Variable | Description | Default | Required |
-| :--- | :--- | :--- | :---: |
-| `MQTT_URL` | Full MQTT broker URL (e.g., `mqtt://192.168.1.100:1883`) | `mqtt://homeassistant.local` | **Yes** |
-| `HOMEASSISTANT_TOKEN` | Long-Lived Access Token for Home Assistant API | - | **Yes** (for HA actions) |
-
-### Optional Configuration
-
-| Variable | Description | Default |
+| Format | Example | Description |
 | :--- | :--- | :--- |
-| `MQTT_USER` | MQTT broker username (if authentication required) | - |
-| `MQTT_PASS` | MQTT broker password (if authentication required) | - |
-| `HOMEASSISTANT_URL` | Home Assistant instance URL | `http://homeassistant.local:8123` |
-| `BALENA_DEVICE_UUID` | Device ID for config lookup (falls back to hostname) | `streamdeck-unknown` |
+| Phosphor Icons | `ph:lightbulb`, `ph:house-fill` | 3,500+ icons from [Phosphor Icons](https://phosphoricons.com/) |
+| Remote Images | `https://example.com/icon.png` | Direct HTTP/HTTPS URLs |
+| Local Files | `local:my-icon.png` | Files in `assets/` directory |
+| Solid Colors | `#FF0000` | Hex color codes |
 
-### Quick Start
+### Action Types
 
-1. **Set up MQTT connection** (required):
-   ```bash
-   export MQTT_URL="mqtt://your-mqtt-broker-ip:1883"
-   # If your broker requires authentication:
-   export MQTT_USER="your-username"
-   export MQTT_PASS="your-password"
-   ```
+#### Home Assistant Service Call
 
-2. **Set up Home Assistant connection** (required for HA actions):
-   ```bash
-   export HOMEASSISTANT_URL="http://your-home-assistant-ip:8123"
-   export HOMEASSISTANT_TOKEN="your-long-lived-access-token"
-   ```
-
-   To create a Long-Lived Access Token in Home Assistant:
-   - Go to your Profile (click your username in the sidebar)
-   - Scroll to "Long-Lived Access Tokens"
-   - Click "Create Token" and copy the value
-
-### Troubleshooting
-
-**MQTT Connection Refused Error:**
+```typescript
+{
+    type: 'ha',
+    service: 'light.turn_on',
+    entityId: 'light.living_room',
+    data: {                    // Optional service data
+        brightness: 255,
+        rgb_color: [255, 0, 0]
+    }
+}
 ```
-MQTT error: AggregateError [ECONNREFUSED]
-```
-This means the MQTT broker is not reachable at the configured URL. Verify:
-- Your MQTT broker (e.g., Mosquitto) is running
-- The `MQTT_URL` points to the correct IP/hostname and port
-- The broker is accessible from this machine (check firewall rules)
-- If using Home Assistant's Mosquitto add-on, the default port is `1883`
 
-**Example `.env` file:**
-```bash
-MQTT_URL=mqtt://192.168.1.100:1883
-MQTT_USER=mqtt_user
-MQTT_PASS=mqtt_password
-HOMEASSISTANT_URL=http://192.168.1.100:8123
-HOMEASSISTANT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+#### Navigate to Page
+
+```typescript
+{
+    type: 'navigate',
+    page: 'page_name'
+}
 ```
+
+#### MQTT Publish
+
+```typescript
+{
+    type: 'mqtt',
+    topic: 'home/light/set',
+    payload: 'ON',
+    retain: false              // Optional
+}
+```
+
+#### Local Commands
+
+```typescript
+{
+    type: 'command',
+    command: 'brightness_up'   // or 'brightness_down', 'set_brightness', 'lcd_on', 'lcd_off', 'clear'
+    value: 80                  // Optional, for set_brightness
+}
+```
+
+### Entity State Styling
+
+When `useEntityState: true`, buttons automatically update their appearance based on Home Assistant entity states:
+
+- **Lights**: Background color matches the light's actual color and brightness
+- **Switches/Binary Sensors**: Green tint when on, dark when off
+- **Text Color**: Automatically adjusts for contrast
+
+## Web UI
+
+The Home Assistant add-on provides a web interface for configuration:
+
+- **Device List**: See all connected Stream Decks with real-time status
+- **Visual Editor**: Point-and-click button configuration
+- **Live Preview**: See how buttons will look before deploying
+- **Entity Autocomplete**: Search and select Home Assistant entities
+- **Icon Picker**: Browse and select from Phosphor icons
+- **One-Click Deploy**: Push configuration to devices instantly
+
+## MQTT Topics
+
+The controller publishes and subscribes to these MQTT topics:
+
+| Topic | Direction | Description |
+| :--- | :--- | :--- |
+| `streamdeck/{deviceId}/status` | Publish | Device online/offline status |
+| `streamdeck/{deviceId}/key/{n}/state` | Publish | Button press events |
+| `streamdeck/{deviceId}/config/set` | Subscribe | Receive configuration updates |
+| `streamdeck/{deviceId}/config/hash` | Publish | Current config hash for sync |
 
 ## Development
 
@@ -151,17 +236,41 @@ HOMEASSISTANT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 # Install dependencies
 npm install
 
-# Run locally (uses tsx)
+# Run controller locally
 npm start
 
 # Build for production
 npm run build
+
+# Run add-on web UI development server
+cd addon/web && npm run dev
 ```
 
-## Deployment (Balena)
+## Troubleshooting
 
-This project is set up for BalenaCloud. Push this repository to your Balena application.
+### MQTT Connection Refused
 
-```bash
-balena push <app-name>
 ```
+MQTT error: AggregateError [ECONNREFUSED]
+```
+
+- Verify MQTT broker is running
+- Check `MQTT_URL` points to correct IP/port
+- Ensure firewall allows connection
+- Home Assistant Mosquitto add-on default port is `1883`
+
+### Stream Deck Not Detected
+
+- Check USB connection
+- Verify udev rules are installed (Linux)
+- Run `lsusb` to confirm device is visible
+
+### Buttons Not Updating
+
+- Check Home Assistant WebSocket connection in logs
+- Verify `HOMEASSISTANT_TOKEN` is valid
+- Ensure `useEntityState: true` is set on button
+
+## License
+
+MIT
